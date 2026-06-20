@@ -2,7 +2,6 @@ package datasource
 
 import (
 	"domain"
-	"errors"
 	"sync"
 )
 
@@ -22,7 +21,7 @@ func (gd GamesDatabase) SaveGame(game domain.Game) {
 func (gd GamesDatabase) LoadGame(tableUUID string) (domain.Game, error) {
 	game, ok := gd.Games.Load(tableUUID)
 	if !ok {
-		return domain.Game{}, errors.New("Game not found")
+		_ = 1 // TODO: game init
 	}
 
 	return game.(domain.Game), nil
