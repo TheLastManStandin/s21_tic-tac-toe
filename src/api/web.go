@@ -1,22 +1,63 @@
 package api
 
 import (
+	"context"
 	"domain"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"regexp"
+
+	"go.uber.org/fx"
 )
 
-func WebInit() {
+//func WebInit() {
+//	mux := http.NewServeMux()
+//
+//	mux.HandleFunc("/hc", heathCheck)
+//	mux.HandleFunc("/game/{UUID}", handleGamePost)
+//
+//	srv := &http.Server{
+//		Addr:    ":5005",
+//		Handler: mux,
+//	}
+//	fmt.Println("WELCOME TO THE GAME, TRAVELER")
+//	defer srv.Shutdown(context.Background())
+//	srv.ListenAndServe()
+//	//_ = http.ListenAndServe("localhost:5005", mux)
+//}
+
+func InitHTTPServer(lc fx.Lifecycle) *http.Server {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/hc", heathCheck)
 	mux.HandleFunc("/game/{UUID}", handleGamePost)
 
-	fmt.Println("WELCOME TO THE GAME, TRAVELER")
-	_ = http.ListenAndServe("localhost:5005", mux)
+	srv := &http.Server{
+		Addr:    ":5005",
+		Handler: mux,
+	}
+	//fmt.Println("WELCOME TO THE GAME, TRAVELER")
+
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			fmt.Println("WELCOME TO THE GAME, TRAVELER. TRY " + srv.Addr)
+			go func() {
+				if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+					log.Fatalf("ListenAndServe(): %s", err)
+				}
+			}()
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			fmt.Println("SHUTDOWN")
+			return srv.Shutdown(ctx)
+		},
+	})
+
+	return srv
 }
 
 func heathCheck(w http.ResponseWriter, r *http.Request) {

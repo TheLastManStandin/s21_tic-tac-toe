@@ -1,7 +1,8 @@
 package main
 
-import "api"
+import "di"
 
 func main() {
-	api.WebInit()
+	//api.WebInit()
+	di.Build()
 }
