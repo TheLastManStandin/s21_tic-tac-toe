@@ -2,6 +2,8 @@ package di
 
 import (
 	"api"
+	"datasource"
+	"domain"
 	"fmt"
 	"net/http"
 
@@ -12,6 +14,9 @@ func Build() {
 	fx.New(
 		fx.Provide(
 			api.InitHTTPServer,
+			datasource.NewGameRepository,
+			api.NewHandler,
+			domain.NewService,
 		),
 		fx.Invoke(func(srv *http.Server) {
 			fmt.Println("starting server")

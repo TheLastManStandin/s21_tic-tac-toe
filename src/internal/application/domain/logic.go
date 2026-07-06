@@ -1,17 +1,22 @@
 package domain
 
-func HandleTurn(game Game) (error, string) {
-	ValidateGame(game)
+func (s Service) HandleTurn(game Game) (Game, error) {
+	s.ValidateGame(game)
 	// Validate
 
 	// minimax / player logic
 	//
-	return nil, ""
+	return Game{}, nil
 }
 
-//func (g Game) MinimaxNextTurn()
+func (s Service) MinimaxNextTurn() {
 
-func ValidateGame(game Game) (error, string) {
-	//di.DB
-	return nil, ""
+}
+
+func (s Service) ValidateGame(game Game) (error, bool) {
+	return nil, false
+}
+
+func (s Service) GameEnded() bool {
+	return false
 }

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"domain"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,37 +12,21 @@ import (
 	"go.uber.org/fx"
 )
 
-//func WebInit() {
-//	mux := http.NewServeMux()
-//
-//	mux.HandleFunc("/hc", heathCheck)
-//	mux.HandleFunc("/game/{UUID}", handleGamePost)
-//
-//	srv := &http.Server{
-//		Addr:    ":5005",
-//		Handler: mux,
-//	}
-//	fmt.Println("WELCOME TO THE GAME, TRAVELER")
-//	defer srv.Shutdown(context.Background())
-//	srv.ListenAndServe()
-//	//_ = http.ListenAndServe("localhost:5005", mux)
-//}
-
-func InitHTTPServer(lc fx.Lifecycle) *http.Server {
+func InitHTTPServer(lc fx.Lifecycle, h *Handler) *http.Server {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/hc", heathCheck)
-	mux.HandleFunc("/game/{UUID}", handleGamePost)
+	mux.HandleFunc("/hc", h.heathCheck)
+	mux.HandleFunc("/game/{UUID}", h.handleGamePost)
 
 	srv := &http.Server{
 		Addr:    ":5005",
 		Handler: mux,
 	}
-	//fmt.Println("WELCOME TO THE GAME, TRAVELER")
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			fmt.Println("WELCOME TO THE GAME, TRAVELER. TRY " + srv.Addr)
+			fmt.Println("WELCOME TO THE GAME, TRAVELER. TRY localhost" + srv.Addr)
+			fmt.Println("YOUR POST MUST BE /GAME/UUID")
 			go func() {
 				if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 					log.Fatalf("ListenAndServe(): %s", err)
@@ -60,11 +43,11 @@ func InitHTTPServer(lc fx.Lifecycle) *http.Server {
 	return srv
 }
 
-func heathCheck(w http.ResponseWriter, r *http.Request) {
+func (h Handler) heathCheck(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK\n"))
 }
 
-func handleGamePost(w http.ResponseWriter, r *http.Request) {
+func (h Handler) handleGamePost(w http.ResponseWriter, r *http.Request) {
 	UUID := r.PathValue("UUID")
 
 	var req GameRequest
@@ -78,13 +61,15 @@ func handleGamePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err, ret := domain.HandleTurn(req.ToDomainGame())
+	ret, err := h.service.HandleTurn(req.ToDomainGame())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	w.Write([]byte(ret + "\n"))
+	// todo
+	_ = ret
+	w.Write([]byte("Dummy" + "\n"))
 }
 
 func validateUUID(UUID string, req *GameRequest) error {
