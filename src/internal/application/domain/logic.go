@@ -58,6 +58,40 @@ func (s Service) ValidateGameTurn(savedGame Game, recivedGame Game) error {
 	return nil
 }
 
-func (s Service) GameEnded() bool {
+func (s Service) GameEnded(game Game) bool {
+	for i := 0; i < 3; i++ {
+		rowVal := game.Table[i][0]
+		rowSame := true
+		for j := 0; j < 3; j++ {
+			if game.Table[i][j] != rowVal {
+				rowSame = false
+			}
+		}
+
+		if rowSame && rowVal != 0 {
+			return true
+		}
+	}
+
+	for i := 0; i < 3; i++ {
+		columnVal := game.Table[0][i]
+		columnSame := true
+		for j := 0; j < 3; j++ {
+			if game.Table[j][i] != columnVal {
+				columnSame = false
+			}
+		}
+
+		if columnSame && columnVal != 0 {
+			return true
+		}
+	}
+
+	midVal := game.Table[1][1]
+	if game.Table[0][0] == midVal && game.Table[2][2] == midVal && midVal != 0 {
+		return true
+	} else if game.Table[0][2] == midVal && game.Table[2][0] == midVal && midVal != 0 {
+		return true
+	}
 	return false
 }
