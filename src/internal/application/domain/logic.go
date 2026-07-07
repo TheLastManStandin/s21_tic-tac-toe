@@ -28,8 +28,6 @@ func (s Service) MinimaxNextTurn() {
 }
 
 func (s Service) ValidateGameTurn(savedGame Game, recivedGame Game) error {
-	const p1 = 1 // всегда человек
-	const p2 = 2
 	count := []int{0, 0, 0}
 	hasChanged := 0
 
@@ -58,7 +56,8 @@ func (s Service) ValidateGameTurn(savedGame Game, recivedGame Game) error {
 	return nil
 }
 
-func (s Service) GameEnded(game Game) bool {
+// win: 1\2 ; have no space: -1 ; have space, noone win: 0
+func (s Service) GameEnded(game Game) int {
 	for i := 0; i < 3; i++ {
 		rowVal := game.Table[i][0]
 		rowSame := true
@@ -69,7 +68,7 @@ func (s Service) GameEnded(game Game) bool {
 		}
 
 		if rowSame && rowVal != 0 {
-			return true
+			return int(rowVal)
 		}
 	}
 
@@ -83,15 +82,29 @@ func (s Service) GameEnded(game Game) bool {
 		}
 
 		if columnSame && columnVal != 0 {
-			return true
+			return int(columnVal)
 		}
 	}
 
 	midVal := game.Table[1][1]
 	if game.Table[0][0] == midVal && game.Table[2][2] == midVal && midVal != 0 {
-		return true
+		return int(midVal)
 	} else if game.Table[0][2] == midVal && game.Table[2][0] == midVal && midVal != 0 {
-		return true
+		return int(midVal)
 	}
-	return false
+
+	haveSpace := false
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			if game.Table[i][j] == 0 {
+				haveSpace = true
+				break
+			}
+		}
+	}
+	if haveSpace {
+		return 0
+	} else {
+		return -1
+	}
 }
