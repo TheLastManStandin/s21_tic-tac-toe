@@ -1,13 +1,19 @@
 package domain
 
+import "datasource"
+
 type GameService interface {
 	HandleTurn(game Game) (Game, error)
-	ValidateGame(game Game) (error, bool)
+	ValidateGameTurn(savedGame Game, recivedGame Game) error
 	GameEnded() bool
 }
 
-type Service struct{}
+type Service struct {
+	db *datasource.GameRepository
+}
 
-func NewService() GameService {
-	return Service{}
+func NewService(db *datasource.GameRepository) *Service {
+	return &Service{
+		db: db,
+	}
 }

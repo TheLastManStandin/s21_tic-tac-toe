@@ -13,10 +13,14 @@ import (
 func Build() {
 	fx.New(
 		fx.Provide(
-			api.InitHTTPServer,
+			datasource.NewGamesDatabase,
 			datasource.NewGameRepository,
+			fx.Annotate(
+				domain.NewService,
+				fx.As(new(domain.GameService)),
+			),
 			api.NewHandler,
-			domain.NewService,
+			api.InitHTTPServer,
 		),
 		fx.Invoke(func(srv *http.Server) {
 			fmt.Println("starting server")

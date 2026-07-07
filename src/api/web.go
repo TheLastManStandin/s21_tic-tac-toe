@@ -57,11 +57,11 @@ func (h Handler) handleGamePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Error decoding JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	ret, err := h.service.HandleTurn(req.ToDomainGame())
+	ret, err := h.service.HandleTurn(req.ToDomainGame(UUID))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -69,7 +69,7 @@ func (h Handler) handleGamePost(w http.ResponseWriter, r *http.Request) {
 
 	// todo
 	_ = ret
-	w.Write([]byte("Dummy" + "\n"))
+	w.Write([]byte("Dummy"))
 }
 
 func validateUUID(UUID string, req *GameRequest) error {
@@ -77,6 +77,6 @@ func validateUUID(UUID string, req *GameRequest) error {
 	if !uuidRegex.MatchString(UUID) {
 		return errors.New("invalid UUID format")
 	}
-	req.ID = UUID
+	//req.UUID = UUID
 	return nil
 }
