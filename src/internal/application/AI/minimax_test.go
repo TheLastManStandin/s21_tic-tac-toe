@@ -104,7 +104,7 @@ func TestMinimax(t *testing.T) {
 			args: args{
 				game: MinimaxGame{
 					Table: [3][3]int8{
-						{2, 2, 1},
+						{2, 0, 0},
 						{0, 1, 0},
 						{0, 0, 1},
 					},
@@ -113,7 +113,7 @@ func TestMinimax(t *testing.T) {
 			},
 			want: MinimaxGame{
 				Table: [3][3]int8{
-					{2, 2, 1},
+					{2, 0, 2},
 					{0, 1, 0},
 					{0, 0, 1},
 				},

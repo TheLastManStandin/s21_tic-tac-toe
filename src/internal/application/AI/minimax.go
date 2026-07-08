@@ -1,6 +1,19 @@
 package AI
 
 func Minimax(game MinimaxGame, turn int) MinimaxGame {
+	// for debug =========================
+	//{
+	//	debugTable := [3][3]int8{
+	//		{2, 2, 1},
+	//		{0, 1, 0},
+	//		{0, 0, 1},
+	//	}
+	//
+	//	if reflect.DeepEqual(debugTable, game.Table) {
+	//		println("debug table matched")
+	//	}
+	//}
+	// ===================================
 	if turn == 2 { // хотя бы один путь
 		moddedGame := MinimaxGame{
 			Table: game.Table,
@@ -9,6 +22,7 @@ func Minimax(game MinimaxGame, turn int) MinimaxGame {
 
 		for i := 0; i < 3; i++ {
 			for j := 0; j < 3; j++ {
+
 				if moddedGame.Table[i][j] == 0 {
 					moddedGame.Table[i][j] = 2
 
@@ -29,7 +43,7 @@ func Minimax(game MinimaxGame, turn int) MinimaxGame {
 				}
 			}
 		}
-		moddedGame.State = 1
+		moddedGame.State = 0
 		return moddedGame
 	} // все игры должны быть проиграны
 	moddedGame := MinimaxGame{
@@ -37,11 +51,9 @@ func Minimax(game MinimaxGame, turn int) MinimaxGame {
 		State: 1,
 	}
 
-	counter := 0
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
 			if moddedGame.Table[i][j] == 0 {
-				counter++
 				moddedGame.Table[i][j] = 1
 
 				endgame := CalculateEndgame(moddedGame)
