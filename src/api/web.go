@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"go.uber.org/fx"
 )
@@ -67,9 +68,7 @@ func (h Handler) handleGamePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// todo
-	_ = ret
-	w.Write([]byte("Dummy"))
+	w.Write([]byte(formatBoard(ret.Table)))
 }
 
 func validateUUID(UUID string, req *GameRequest) error {
@@ -79,4 +78,20 @@ func validateUUID(UUID string, req *GameRequest) error {
 	}
 	//req.UUID = UUID
 	return nil
+}
+
+func formatBoard(table [3][3]int8) string {
+	var b strings.Builder
+
+	b.WriteByte('\n')
+	for i, row := range table {
+		fmt.Fprintf(&b, " %d | %d | %d ", row[0], row[1], row[2])
+		if i < len(table)-1 {
+			b.WriteString("\n-----------\n")
+		}
+	}
+
+	b.WriteByte('\n')
+	b.WriteByte('\n')
+	return b.String()
 }

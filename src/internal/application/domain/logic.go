@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"AI"
 	"errors"
 	"strconv"
 )
@@ -18,13 +19,18 @@ func (s Service) HandleTurn(game Game) (Game, error) {
 
 	// minimax / player logic
 	// todo player 2 turn
-	s.MinimaxNextTurn()
+	s.MinimaxNextTurn(&game)
 
-	return Game{}, nil
+	return game, nil
 }
 
-func (s Service) MinimaxNextTurn() {
-
+func (s Service) MinimaxNextTurn(game *Game) {
+	gameUuid := game.UUID
+	nextTurn := AI.Minimax(GameToMinimaxGame(*game), 2)
+	localGame := AIMinimaxGameToGame(nextTurn)
+	localGame.UUID = gameUuid
+	s.db.SaveGame(DomainToDbGame(localGame))
+	*game = localGame
 }
 
 func (s Service) ValidateGameTurn(savedGame Game, recivedGame Game) error {
@@ -41,6 +47,9 @@ func (s Service) ValidateGameTurn(savedGame Game, recivedGame Game) error {
 			count[recivedVal]++
 
 			if recivedVal != savedVal {
+				if recivedVal == 0 {
+					return errors.New("wrong board passed")
+				}
 				hasChanged++
 			}
 		}
@@ -56,55 +65,56 @@ func (s Service) ValidateGameTurn(savedGame Game, recivedGame Game) error {
 	return nil
 }
 
-// win: 1\2 ; have no space: -1 ; have space, noone win: 0
-func (s Service) GameEnded(game Game) int {
-	for i := 0; i < 3; i++ {
-		rowVal := game.Table[i][0]
-		rowSame := true
-		for j := 0; j < 3; j++ {
-			if game.Table[i][j] != rowVal {
-				rowSame = false
-			}
-		}
-
-		if rowSame && rowVal != 0 {
-			return int(rowVal)
-		}
-	}
-
-	for i := 0; i < 3; i++ {
-		columnVal := game.Table[0][i]
-		columnSame := true
-		for j := 0; j < 3; j++ {
-			if game.Table[j][i] != columnVal {
-				columnSame = false
-			}
-		}
-
-		if columnSame && columnVal != 0 {
-			return int(columnVal)
-		}
-	}
-
-	midVal := game.Table[1][1]
-	if game.Table[0][0] == midVal && game.Table[2][2] == midVal && midVal != 0 {
-		return int(midVal)
-	} else if game.Table[0][2] == midVal && game.Table[2][0] == midVal && midVal != 0 {
-		return int(midVal)
-	}
-
-	haveSpace := false
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 3; j++ {
-			if game.Table[i][j] == 0 {
-				haveSpace = true
-				break
-			}
-		}
-	}
-	if haveSpace {
-		return 0
-	} else {
-		return -1
-	}
-}
+//
+//// win: 1\2 ; have no space: -1 ; have space, noone win: 0
+//func (s Service) GameEnded(game Game) int {
+//	for i := 0; i < 3; i++ {
+//		rowVal := game.Table[i][0]
+//		rowSame := true
+//		for j := 0; j < 3; j++ {
+//			if game.Table[i][j] != rowVal {
+//				rowSame = false
+//			}
+//		}
+//
+//		if rowSame && rowVal != 0 {
+//			return int(rowVal)
+//		}
+//	}
+//
+//	for i := 0; i < 3; i++ {
+//		columnVal := game.Table[0][i]
+//		columnSame := true
+//		for j := 0; j < 3; j++ {
+//			if game.Table[j][i] != columnVal {
+//				columnSame = false
+//			}
+//		}
+//
+//		if columnSame && columnVal != 0 {
+//			return int(columnVal)
+//		}
+//	}
+//
+//	midVal := game.Table[1][1]
+//	if game.Table[0][0] == midVal && game.Table[2][2] == midVal && midVal != 0 {
+//		return int(midVal)
+//	} else if game.Table[0][2] == midVal && game.Table[2][0] == midVal && midVal != 0 {
+//		return int(midVal)
+//	}
+//
+//	haveSpace := false
+//	for i := 0; i < 3; i++ {
+//		for j := 0; j < 3; j++ {
+//			if game.Table[i][j] == 0 {
+//				haveSpace = true
+//				break
+//			}
+//		}
+//	}
+//	if haveSpace {
+//		return 0
+//	} else {
+//		return -1
+//	}
+//}

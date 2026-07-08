@@ -1,14 +1,12 @@
 package AI
 
 import (
-	"domain"
 	"reflect"
 	"testing"
 )
 
 func TestMinimax(t *testing.T) {
 	type args struct {
-		s    domain.Service
 		game MinimaxGame
 		turn int
 	}
@@ -20,9 +18,8 @@ func TestMinimax(t *testing.T) {
 		{
 			name: "case 1",
 			args: args{
-				s: domain.Service{},
 				game: MinimaxGame{
-					Table: domain.Table{
+					Table: [3][3]int8{
 						{0, 0, 2},
 						{2, 1, 1},
 						{1, 1, 2},
@@ -31,7 +28,7 @@ func TestMinimax(t *testing.T) {
 				turn: 2,
 			},
 			want: MinimaxGame{
-				Table: domain.Table{
+				Table: [3][3]int8{
 					{0, 2, 2},
 					{2, 1, 1},
 					{1, 1, 2},
@@ -42,9 +39,8 @@ func TestMinimax(t *testing.T) {
 		{
 			name: "case 2",
 			args: args{
-				s: domain.Service{},
 				game: MinimaxGame{
-					Table: domain.Table{
+					Table: [3][3]int8{
 						{0, 0, 0},
 						{0, 1, 0},
 						{0, 0, 0},
@@ -53,7 +49,7 @@ func TestMinimax(t *testing.T) {
 				turn: 2,
 			},
 			want: MinimaxGame{
-				Table: domain.Table{
+				Table: [3][3]int8{
 					{2, 0, 0},
 					{0, 1, 0},
 					{0, 0, 0},
@@ -64,9 +60,8 @@ func TestMinimax(t *testing.T) {
 		{
 			name: "case 3",
 			args: args{
-				s: domain.Service{},
 				game: MinimaxGame{
-					Table: domain.Table{
+					Table: [3][3]int8{
 						{0, 0, 0},
 						{0, 2, 1},
 						{2, 1, 1},
@@ -75,7 +70,7 @@ func TestMinimax(t *testing.T) {
 				turn: 2,
 			},
 			want: MinimaxGame{
-				Table: domain.Table{
+				Table: [3][3]int8{
 					{0, 0, 2},
 					{0, 2, 1},
 					{2, 1, 1},
@@ -83,13 +78,11 @@ func TestMinimax(t *testing.T) {
 				State: 1,
 			},
 		},
-
 		{
 			name: "case 4",
 			args: args{
-				s: domain.Service{},
 				game: MinimaxGame{
-					Table: domain.Table{
+					Table: [3][3]int8{
 						{0, 0, 1},
 						{1, 2, 2},
 						{1, 0, 0},
@@ -98,7 +91,7 @@ func TestMinimax(t *testing.T) {
 				turn: 2,
 			},
 			want: MinimaxGame{
-				Table: domain.Table{
+				Table: [3][3]int8{
 					{2, 0, 1},
 					{1, 2, 2},
 					{1, 0, 0},
@@ -106,10 +99,31 @@ func TestMinimax(t *testing.T) {
 				State: 1,
 			},
 		},
+		{
+			name: "case 5",
+			args: args{
+				game: MinimaxGame{
+					Table: [3][3]int8{
+						{2, 2, 1},
+						{0, 1, 0},
+						{0, 0, 1},
+					},
+				},
+				turn: 2,
+			},
+			want: MinimaxGame{
+				Table: [3][3]int8{
+					{2, 2, 1},
+					{0, 1, 0},
+					{0, 0, 1},
+				},
+				State: 1,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Minimax(tt.args.s, tt.args.game, tt.args.turn); !reflect.DeepEqual(got, tt.want) {
+			if got := Minimax(tt.args.game, tt.args.turn); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Minimax() = %v, want %v", got, tt.want)
 			}
 		})

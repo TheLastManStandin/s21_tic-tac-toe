@@ -1,6 +1,8 @@
 package api
 
-import "domain"
+import (
+	"domain"
+)
 
 type Handler struct {
 	service domain.GameService

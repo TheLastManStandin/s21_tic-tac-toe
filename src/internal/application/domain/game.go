@@ -2,7 +2,5 @@ package domain
 
 type Game struct {
 	UUID  string
-	Table Table
+	Table [3][3]int8
 }
-
-type Table [3][3]int8

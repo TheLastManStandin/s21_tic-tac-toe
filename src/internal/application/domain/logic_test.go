@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"AI"
 	"datasource"
 	"testing"
 )
@@ -89,7 +90,7 @@ func TestService_GameEnded(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := Service{
+			s := AI.Service{
 				db: tt.fields.db,
 			}
 			if got := s.GameEnded(tt.args.game); got != tt.want {
