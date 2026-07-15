@@ -1,5 +1,5 @@
 APP_NAME := tictactoe
-MAIN_PATH := ./cmd/tictactoe/main.go
+MAIN_PATH := ./cmd/main.go
 BIN_DIR := ./bin
 
 .PHONY: build run clean

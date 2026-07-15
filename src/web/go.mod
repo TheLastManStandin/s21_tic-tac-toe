@@ -1,6 +1,6 @@
-module di
+module web
 
-go 1.25.6
+go 1.26.4
 
 require (
 	go.uber.org/dig v1.19.0 // indirect

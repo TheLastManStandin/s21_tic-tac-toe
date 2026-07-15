@@ -1,11 +1,10 @@
 package di
 
 import (
-	"api"
 	"datasource"
-	"domain"
 	"fmt"
 	"net/http"
+	"web"
 
 	"go.uber.org/fx"
 )
@@ -13,14 +12,10 @@ import (
 func Build() {
 	fx.New(
 		fx.Provide(
-			datasource.NewGamesDatabase,
-			datasource.NewGameRepository,
+			web.InitHTTPServer,
 			fx.Annotate(
-				domain.NewService,
-				fx.As(new(domain.GameService)),
-			),
-			api.NewHandler,
-			api.InitHTTPServer,
+				datasource.NewGamesDatabase,
+				fx.As(new(datasource.Database))),
 		),
 		fx.Invoke(func(srv *http.Server) {
 			fmt.Println("starting server")
