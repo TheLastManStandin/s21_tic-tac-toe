@@ -1,4 +1,5 @@
 task.md
 .idea
 go.work
-src/bin/tictactoe
+src/bin/*
+src/.env
