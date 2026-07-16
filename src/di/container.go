@@ -14,7 +14,8 @@ func Build() {
 		fx.Provide(
 			web.InitHTTPServer,
 			fx.Annotate(
-				datasource.NewGamesDatabase,
+				//datasource.NewMapDatabase,
+				datasource.NewPostgresDatabase,
 				fx.As(new(datasource.Database))),
 		),
 		fx.Invoke(func(srv *http.Server) {

@@ -35,6 +35,10 @@ func InitHTTPServer(lc fx.Lifecycle, db datasource.Database) *http.Server {
 		},
 		OnStop: func(ctx context.Context) error {
 			fmt.Println("SHUTDOWN")
+			err := db.Close()
+			if err != nil {
+				fmt.Println("DB CLOSE ERROR")
+			}
 			return srv.Shutdown(ctx)
 		},
 	})

@@ -1,14 +1,23 @@
 package datasource
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
 
 type Database interface {
-	SaveGame(instance GameInstance, UUID string)
+	SaveGame(instance GameInstance, UUID string) error
 	LoadGame(UUID string) (GameInstance, error)
+	Close() error
 }
 
-type GamesDatabase struct {
+type MapDatabase struct {
 	Games sync.Map
+}
+
+type PostgresDatabase struct {
+	pool *pgxpool.Pool
 }
 
 type GameInstance struct {
