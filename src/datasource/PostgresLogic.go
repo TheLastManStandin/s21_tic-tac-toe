@@ -3,6 +3,8 @@ package datasource
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -10,7 +12,7 @@ import (
 
 func NewPostgresDatabase() (*PostgresDatabase, error) {
 	//todo убрать хардкод секретов бд
-	pool, err := pgxpool.New(context.Background(), "postgres://postgres:Ghjdthrf01@localhost:5432/postgres")
+	pool, err := pgxpool.New(context.Background(), getConnString())
 	if err != nil {
 		return nil, err
 	}
@@ -69,4 +71,12 @@ func (db *PostgresDatabase) LoadGame(UUID string) (GameInstance, error) {
 func (db *PostgresDatabase) Close() error {
 	db.pool.Close()
 	return nil
+}
+
+func getConnString() string {
+	ret := strings.Builder{}
+	connString := os.Getenv("DATABASE_CONNSTRING")
+	ret.WriteString(connString)
+
+	return ret.String()
 }

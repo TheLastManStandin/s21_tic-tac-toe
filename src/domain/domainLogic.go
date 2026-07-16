@@ -26,14 +26,20 @@ func HandleTurn(req GameRequest, db datasource.Database, UUID string) (GameInsta
 
 	if status := calculateEndgame(savedGame.toMinimax()); status >= 0 {
 		savedGame.Status = status
-		db.SaveGame(savedGame.toDatasource(), UUID)
+		err = db.SaveGame(savedGame.toDatasource(), UUID)
+		if err != nil {
+			return GameInstance{}, err
+		}
 		return savedGame, nil
 	}
 
 	nextTurn := savedGame.toMinimax()
 	minimax(&nextTurn, 2)
 	savedGame = nextTurn.toDomain(UUID)
-	db.SaveGame(savedGame.toDatasource(), UUID)
+	err = db.SaveGame(savedGame.toDatasource(), UUID)
+	if err != nil {
+		return GameInstance{}, err
+	}
 
 	return savedGame, nil
 }
@@ -46,27 +52,6 @@ func gameInit(req GameRequest, UUID string) GameInstance {
 		UUID:   UUID,
 		Status: Still,
 	}
-}
-
-func minimaxTurn(game GameInstance) GameInstance {
-	bestGame := GameInstance{}
-	for y := 0; y < 3; y++ {
-		for x := 0; x < 3; x++ {
-			if game.Table[y][x] == 0 {
-				game.Table[y][x] = 2
-				mgame := game.toMinimax()
-				minimax(&mgame, 1)
-
-				//if ret == MinimaxWin {
-				//	return game
-				//} else if ret == Draw {
-				//	bestGame = game
-				//}
-				game.Table[y][x] = 0
-			}
-		}
-	}
-	return bestGame
 }
 
 // Возвращает 1 или 2, если победил игрок(1) или минимакс(2).
