@@ -46,20 +46,36 @@ func gamePostHandler(db datasource.Database, uuidRegexp *regexp.Regexp, w http.R
 
 }
 
+func authHandler(db datasource.Database, uuidRegexp *regexp.Regexp, w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	username, _, _ := r.BasicAuth()
+
+	user, err := db.GetUserByName(username)
+
+	if err != nil {
+		http.Error(w, "Error getting user: "+err.Error(), http.StatusBadRequest)
+	}
+	w.Write([]byte(user.UUID + "\n"))
+}
+
 func registrationHandler(db datasource.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		username, password, ok := r.BasicAuth()
-		if !ok {
+		//username, password, ok := r.BasicAuth()
+		req := SignUpRequest{}
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+
+		if err := decoder.Decode(&req); err != nil {
 			w.Header().Set("WWW-Authenticate", `Basic realm="api"`)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		}
 
-		bcryptPass, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		bcryptPass, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 
 		user := datasource.User{
-			Username:     username,
+			Username:     req.Username,
 			UUID:         uuid.New().String(),
 			HashPassword: bcryptPass,
 		}

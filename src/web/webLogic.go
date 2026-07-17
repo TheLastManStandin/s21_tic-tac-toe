@@ -18,6 +18,7 @@ func InitHTTPServer(lc fx.Lifecycle, db datasource.Database) *http.Server {
 
 	mux.HandleFunc("POST /game/{UUID}", authenticationMiddleware(db, uuidRegexp, gamePostHandler))
 	mux.HandleFunc("POST /registration", registrationHandler(db))
+	mux.HandleFunc("POST /authorization", authenticationMiddleware(db, uuidRegexp, authHandler))
 
 	srv := &http.Server{
 		Addr:    ":5005",
