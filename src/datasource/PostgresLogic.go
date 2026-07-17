@@ -72,3 +72,37 @@ func (db *PostgresDatabase) Close() error {
 	db.pool.Close()
 	return nil
 }
+
+func (db *PostgresDatabase) GetUserByName(username string) (User, error) {
+	ret := User{}
+
+	err := db.pool.QueryRow(
+		context.Background(),
+		"SELECT * FROM client WHERE name = $1",
+		username,
+	).Scan(&ret.UUID, &ret.Username, &ret.HashPassword)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ret, errors.New("user not found")
+		}
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func (db *PostgresDatabase) AddUser(user User) error {
+	_, err := db.pool.Exec(
+		context.Background(),
+		"INSERT INTO client(uuid, name, password) VALUES($1,$2,$3)",
+		user.UUID, user.Username, user.HashPassword,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrTooManyRows) {
+			return errors.New("user already exists")
+		}
+		return err
+	}
+	return nil
+}

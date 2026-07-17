@@ -24,3 +24,19 @@ func (gd *MapDatabase) LoadGame(UUID string) (GameInstance, error) {
 func (gd *MapDatabase) Close() error {
 	return nil
 }
+
+func (gd *MapDatabase) GetUserByName(username string) (User, error) {
+	user, ok := gd.Users.Load(username)
+	if !ok {
+		return User{}, errors.New("user not found")
+	}
+	return user.(User), nil
+}
+
+func (gd *MapDatabase) AddUser(user User) error {
+	if _, exists := gd.Users.Load(user.Username); exists {
+		return errors.New("user already exists")
+	}
+	gd.Users.Store(user.Username, user)
+	return nil
+}
