@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func gamePostHandler(db datasource.Database, uuidRegexp *regexp.Regexp, w http.ResponseWriter, r *http.Request) {
+func gamePostHandler(gs domain.GameService, uuidRegexp *regexp.Regexp, w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	UUID := r.PathValue("UUID")
@@ -31,7 +31,7 @@ func gamePostHandler(db datasource.Database, uuidRegexp *regexp.Regexp, w http.R
 		return
 	}
 
-	ret, err := domain.HandleTurn(req.toDomain(), db, UUID)
+	ret, err := gs.GetUpdatedGame(UUID, req.toDomain())
 	if err != nil {
 		http.Error(w, "Error handling turn: "+err.Error(), http.StatusBadRequest)
 		return
@@ -39,11 +39,24 @@ func gamePostHandler(db datasource.Database, uuidRegexp *regexp.Regexp, w http.R
 
 	resp.UUID = ret.UUID
 	resp.Table = ret.Table
+	resp.Result = gameResult(ret.State)
 
-	resp.Result = gameResult(int(ret.Status))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
 
+func gameResult(status datasource.GameState) string {
+	//switch status {
+	//case datasource.Draw:
+	//	return "draw"
+	//case datasource.:
+	//	return "player_won"
+	//case domain.MinimaxWin:
+	//	return "computer_won"
+	//default:
+	//	return "in_progress"
+	//}
+	return "Сделай статусы"
 }
 
 func authHandler(db datasource.Database, uuidRegexp *regexp.Regexp, w http.ResponseWriter, r *http.Request) {
@@ -70,6 +83,14 @@ func registrationHandler(db datasource.Database) http.HandlerFunc {
 		if err := decoder.Decode(&req); err != nil {
 			w.Header().Set("WWW-Authenticate", `Basic realm="api"`)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		if len(req.Username) < 4 {
+			w.Write([]byte("Username must be at least 4 characters"))
+		}
+		if len(req.Password) < 4 {
+			w.Write([]byte("Password must be at least 4 characters"))
 		}
 
 		bcryptPass, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -83,7 +104,8 @@ func registrationHandler(db datasource.Database) http.HandlerFunc {
 		err := db.AddUser(user)
 		if err != nil {
 			http.Error(w, "Error adding user: "+err.Error(), http.StatusBadRequest)
+		} else {
+			w.Write([]byte("Registration successful\n"))
 		}
-		w.Write([]byte("Registration successful"))
 	}
 }

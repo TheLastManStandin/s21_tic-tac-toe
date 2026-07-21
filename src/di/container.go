@@ -2,6 +2,7 @@ package di
 
 import (
 	"datasource"
+	"domain"
 	"fmt"
 	"net/http"
 	"web"
@@ -17,6 +18,7 @@ func Build() {
 				//datasource.NewMapDatabase,
 				datasource.NewPostgresDatabase,
 				fx.As(new(datasource.Database))),
+			domain.NewGameService,
 		),
 		fx.Invoke(func(srv *http.Server) {
 			fmt.Println("starting server")

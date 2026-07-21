@@ -23,8 +23,8 @@ func (g GameInstance) toMinimax() minimaxGame {
 
 func (g minimaxGame) toDomain(UUID string) GameInstance {
 	return GameInstance{
-		Table:  g.table,
-		Status: calculateEndgame(g),
-		UUID:   UUID,
+		Table: g.table,
+		State: calculateEndgame(g),
+		UUID:  UUID,
 	}
 }

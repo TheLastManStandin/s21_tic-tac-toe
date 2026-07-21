@@ -1,14 +1,16 @@
 package domain
 
-type GameService interface {
-	MinimaxTurn() (GameInstance, error)
-	Validate() error
-	EndGame() int
-}
+import "datasource"
+
+//	type GameService interface {
+//		MinimaxTurn() (GameInstance, error)
+//		Validate() error
+//		EndGame() int
+//	}
 type GameInstance struct {
-	UUID   string
-	Table  [3][3]int
-	Status MinimaxStatus
+	UUID  string
+	Table [3][3]int
+	State datasource.GameState
 }
 
 type GameRequest struct {

@@ -23,8 +23,20 @@ type PostgresDatabase struct {
 	pool *pgxpool.Pool
 }
 
+type GameState int
+
+const (
+	WaitingForPlayers GameState = iota
+	FirstPlayerTurn
+	SecondPlayerTurn
+	FirstPlayerWon
+	SecondPlayerWon
+	Draw
+)
+
 type GameInstance struct {
 	Table [3][3]int
+	State GameState
 }
 
 type User struct {

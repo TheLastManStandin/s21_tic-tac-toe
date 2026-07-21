@@ -12,10 +12,15 @@ import (
 	"go.uber.org/fx"
 )
 
-func InitHTTPServer(lc fx.Lifecycle, db datasource.Database) *http.Server {
+func InitHTTPServer(
+	lc fx.Lifecycle,
+	gameService domain.GameService,
+	db datasource.Database,
+) *http.Server {
 	mux := http.NewServeMux()
 	uuidRegexp := regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
 
+	//TODO добавить контекст
 	mux.HandleFunc("POST /game/{UUID}", authenticationMiddleware(db, uuidRegexp, gamePostHandler))
 	mux.HandleFunc("POST /registration", registrationHandler(db))
 	mux.HandleFunc("POST /authorization", authenticationMiddleware(db, uuidRegexp, authHandler))
@@ -45,19 +50,6 @@ func InitHTTPServer(lc fx.Lifecycle, db datasource.Database) *http.Server {
 	})
 
 	return srv
-}
-
-func gameResult(status int) string {
-	switch domain.MinimaxStatus(status) {
-	case domain.Draw:
-		return "draw"
-	case domain.MinimaxLose:
-		return "player_won"
-	case domain.MinimaxWin:
-		return "computer_won"
-	default:
-		return "in_progress"
-	}
 }
 
 func validateRequest(req GameRequest, UUID string, uuidRegexp regexp.Regexp) error {

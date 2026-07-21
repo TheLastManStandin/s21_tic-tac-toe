@@ -30,8 +30,9 @@ func (db *PostgresDatabase) SaveGame(game GameInstance, UUID string) error {
 
 	_, err := db.pool.Exec(
 		context.Background(),
-		"INSERT INTO games(uuid, gametable) VALUES($1,$2) ON CONFLICT (uuid) DO UPDATE SET gametable = $2",
-		UUID, table,
+		"INSERT INTO games(uuid, gametable, gamestate) VALUES($1,$2,$3) "+
+			"ON CONFLICT (uuid) DO UPDATE SET gametable = $2, gamestate = $3",
+		UUID, table, int(game.State),
 	)
 	if err != nil {
 		//todo обработать если база не отвечает
@@ -43,25 +44,29 @@ func (db *PostgresDatabase) SaveGame(game GameInstance, UUID string) error {
 func (db *PostgresDatabase) LoadGame(UUID string) (GameInstance, error) {
 	ret := GameInstance{}
 
-	var raw [][]int32
+	queryRet := struct {
+		raw       [][]int32 `db:"gametable"`
+		gameState int       `db:"gamestate"`
+	}{}
 	err := db.pool.QueryRow(
 		context.Background(),
-		"SELECT gametable FROM games WHERE uuid = $1",
+		"SELECT gametable, gamestate FROM games WHERE uuid = $1",
 		UUID,
-	).Scan(&raw)
+	).Scan(&queryRet)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ret, errors.New("game not found")
 		}
 		return ret, err
 	}
+	ret.State = GameState(queryRet.gameState)
 
-	if len(raw) != 3 || len(raw[0]) != 3 {
+	if len(queryRet.raw) != 3 || len(queryRet.raw[0]) != 3 {
 		return ret, errors.New("invalid table dimensions in database")
 	}
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
-			ret.Table[i][j] = int(raw[i][j])
+			ret.Table[i][j] = int(queryRet.raw[i][j])
 		}
 	}
 
