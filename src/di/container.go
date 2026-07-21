@@ -8,6 +8,7 @@ import (
 	"web"
 
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 func Build() {
@@ -19,6 +20,7 @@ func Build() {
 				datasource.NewPostgresDatabase,
 				fx.As(new(datasource.Database))),
 			domain.NewGameService,
+			zap.NewDevelopment,
 		),
 		fx.Invoke(func(srv *http.Server) {
 			fmt.Println("starting server")

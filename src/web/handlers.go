@@ -4,45 +4,16 @@ import (
 	"datasource"
 	"domain"
 	"encoding/json"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"regexp"
-
-	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 )
 
-func gamePostHandler(gs domain.GameService, uuidRegexp *regexp.Regexp, w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-
-	UUID := r.PathValue("UUID")
-
-	var req GameRequest
-	var resp GameResponse
-
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&req); err != nil {
-		http.Error(w, "Error decoding JSON: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := validateRequest(req, UUID, *uuidRegexp); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	ret, err := gs.GetUpdatedGame(UUID, req.toDomain())
-	if err != nil {
-		http.Error(w, "Error handling turn: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	resp.UUID = ret.UUID
-	resp.Table = ret.Table
-	resp.Result = gameResult(ret.State)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+type GamePostHandler struct {
+	log         *zap.Logger
+	gameService domain.GameService
 }
 
 func gameResult(status datasource.GameState) string {

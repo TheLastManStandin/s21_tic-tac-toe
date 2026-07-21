@@ -5,26 +5,18 @@ import (
 	"datasource"
 	"domain"
 	"errors"
-	"fmt"
 	"net/http"
-	"regexp"
 
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 func InitHTTPServer(
 	lc fx.Lifecycle,
-	gameService domain.GameService,
 	db datasource.Database,
+	log *zap.Logger,
+	mux *http.ServeMux,
 ) *http.Server {
-	mux := http.NewServeMux()
-	uuidRegexp := regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
-
-	//TODO добавить контекст
-	mux.HandleFunc("POST /game/{UUID}", authenticationMiddleware(db, uuidRegexp, gamePostHandler))
-	mux.HandleFunc("POST /registration", registrationHandler(db))
-	mux.HandleFunc("POST /authorization", authenticationMiddleware(db, uuidRegexp, authHandler))
-
 	srv := &http.Server{
 		Addr:    ":5005",
 		Handler: mux,
@@ -40,10 +32,10 @@ func InitHTTPServer(
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			fmt.Println("SHUTDOWN")
+			log.Info("SHUTDOWN")
 			err := db.Close()
 			if err != nil {
-				fmt.Println("DB CLOSE ERROR")
+				log.Info("DB CLOSE ERROR")
 			}
 			return srv.Shutdown(ctx)
 		},
@@ -52,11 +44,21 @@ func InitHTTPServer(
 	return srv
 }
 
-func validateRequest(req GameRequest, UUID string, uuidRegexp regexp.Regexp) error {
-	if !uuidRegexp.MatchString(UUID) {
-		return errors.New("invalid uuid")
-	}
+func NewServeMux(
+	gameService domain.GameService,
+	log *zap.Logger,
+) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.Handle("POST /game/{UUID}", GamePostHandler{
+		gameService: gameService,
+		log:         log,
+	})
+	//mux.HandleFunc("POST /registration", registrationHandler(db))
+	//mux.HandleFunc("POST /authorization", authenticationMiddleware(db, uuidRegexp, authHandler))
+	return mux
+}
 
+func validateRequest(req GameRequest) error {
 	if req.Y < 0 || req.X < 0 || req.Y > 2 || req.X > 2 {
 		return errors.New("invalid cordinates")
 	}
