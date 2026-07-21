@@ -21,10 +21,10 @@ func (g GameInstance) toMinimax() minimaxGame {
 	}
 }
 
-func (g minimaxGame) toDomain(UUID string) GameInstance {
+func (g minimaxGame) toDomain(UUID string, state datasource.GameState) GameInstance {
 	return GameInstance{
 		Table: g.table,
-		State: calculateEndgame(g),
+		State: state,
 		UUID:  UUID,
 	}
 }

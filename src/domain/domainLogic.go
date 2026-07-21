@@ -13,10 +13,3 @@ func gameInit(req GameRequest, UUID string) GameInstance {
 		State: datasource.WaitingForPlayers,
 	}
 }
-
-// Возвращает 1 или 2, если победил игрок(1) или минимакс(2).
-// Возвращает 0 в случаи ничьи.
-// Возвращает -1 если никто не победил и игра продолжается
-//func calculateEndgame(game minimaxGame) MinimaxStatus {
-//
-//}

@@ -6,6 +6,7 @@ import (
 	"domain"
 	"errors"
 	"net/http"
+	"os"
 
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -17,8 +18,13 @@ func InitHTTPServer(
 	log *zap.Logger,
 	mux *http.ServeMux,
 ) *http.Server {
+	serverAddress := os.Getenv("SERVER_ADDRESS")
+	if serverAddress == "" {
+		serverAddress = ":5005"
+	}
+
 	srv := &http.Server{
-		Addr:    ":5005",
+		Addr:    serverAddress,
 		Handler: mux,
 	}
 

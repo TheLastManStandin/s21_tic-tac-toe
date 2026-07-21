@@ -20,6 +20,8 @@ func Build() {
 				datasource.NewPostgresDatabase,
 				fx.As(new(datasource.Database))),
 			domain.NewGameService,
+			domain.NewUserService,
+			web.NewServeMux,
 			zap.NewDevelopment,
 		),
 		fx.Invoke(func(srv *http.Server) {

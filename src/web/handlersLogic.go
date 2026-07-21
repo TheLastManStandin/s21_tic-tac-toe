@@ -8,10 +8,16 @@ import (
 func (h GamePostHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
-	UUID := r.PathValue("UUID")
-
 	var req GameRequest
 	var resp GameResponse
+
+	user, authErr := h.userService.Authentication(*r)
+	if authErr != nil {
+		w.Header().Set("WWW-Authenticate", `Basic realm="api"`)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	}
+
+	UUID := r.PathValue("UUID")
 
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()

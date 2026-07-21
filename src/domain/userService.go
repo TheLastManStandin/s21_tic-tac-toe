@@ -19,19 +19,19 @@ func NewUserService(database datasource.Database) *UserService {
 	}
 }
 
-func (us UserService) Authentication(req http.Request) error {
+func (us UserService) Authentication(req http.Request) (datasource.User, error) {
 	username, password, ok := req.BasicAuth()
+	retErr := errors.New("invalid username or password")
 
-	user, err := us.database.GetUserByName(strings.Trim(username, " "))
-
-	if err != nil {
-		return errors.New("invalid username or password")
+	if ok {
+		user, err := us.database.GetUserByName(strings.Trim(username, " "))
+		if err != nil {
+			return datasource.User{}, retErr
+		}
+		if cmperr := bcrypt.CompareHashAndPassword(user.HashPassword, []byte(password)); cmperr != nil {
+			return datasource.User{}, retErr
+		}
+		return user, nil
 	}
-	if cmperr := bcrypt.CompareHashAndPassword(user.HashPassword, []byte(password)); cmperr != nil {
-		return errors.New("invalid username or password")
-	}
-	if ok && VerifyUserPass(username, password, us.database) {
-		return nil
-	}
-	return errors.New("invalid username or password")
+	return datasource.User{}, retErr
 }

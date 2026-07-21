@@ -3,13 +3,14 @@ package main
 import (
 	"di"
 	"log"
+	"os"
 
 	"github.com/joho/godotenv"
 )
 
 func main() {
 	err := godotenv.Load(".env")
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		log.Fatal("Error loading .env file")
 	}
 	di.Build()

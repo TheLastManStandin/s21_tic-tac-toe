@@ -15,6 +15,10 @@ func NewPostgresDatabase() (*PostgresDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := pool.Ping(context.Background()); err != nil {
+		pool.Close()
+		return nil, err
+	}
 	log.Println("Connected to postgres database")
 	return &PostgresDatabase{pool: pool}, nil
 }

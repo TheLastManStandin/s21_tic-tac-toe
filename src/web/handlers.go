@@ -4,16 +4,18 @@ import (
 	"datasource"
 	"domain"
 	"encoding/json"
+	"net/http"
+	"regexp"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	"net/http"
-	"regexp"
 )
 
 type GamePostHandler struct {
 	log         *zap.Logger
 	gameService domain.GameService
+	userService domain.UserService
 }
 
 func gameResult(status datasource.GameState) string {

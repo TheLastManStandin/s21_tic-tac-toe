@@ -25,6 +25,7 @@ type PostgresDatabase struct {
 
 type GameState int
 
+// todo добавить енумерацию в sql
 const (
 	WaitingForPlayers GameState = iota
 	FirstPlayerTurn
