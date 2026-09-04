@@ -1,11 +1,11 @@
 package di
 
 import (
-	"datasource"
-	"domain"
 	"fmt"
+	"internal/internal/datasource"
+	"internal/internal/domain"
+	"internal/internal/web"
 	"net/http"
-	"web"
 
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -16,7 +16,6 @@ func Build() {
 		fx.Provide(
 			web.InitHTTPServer,
 			fx.Annotate(
-				//datasource.NewMapDatabase,
 				datasource.NewPostgresDatabase,
 				fx.As(new(datasource.Database))),
 			domain.NewGameService,

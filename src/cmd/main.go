@@ -1,7 +1,7 @@
 package main
 
 import (
-	"di"
+	"internal/internal/di"
 	"log"
 	"os"
 

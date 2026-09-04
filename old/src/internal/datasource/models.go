@@ -1,8 +1,6 @@
 package datasource
 
 import (
-	"sync"
-
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -12,11 +10,6 @@ type Database interface {
 	Close() error
 	GetUserByName(username string) (User, error)
 	AddUser(user User) error
-}
-
-type MapDatabase struct {
-	Games sync.Map
-	Users sync.Map
 }
 
 type PostgresDatabase struct {

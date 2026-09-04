@@ -1,7 +1,7 @@
 services:
   app:
     build:
-      context: ./src
+      context: src
     container_name: ap4-app
     depends_on:
       db:

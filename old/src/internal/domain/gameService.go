@@ -120,9 +120,11 @@ func (gs GameService) GetGameState(game GameInstance, turn int) datasource.GameS
 }
 
 func (gs GameService) MinimaxTurn(game GameInstance) error {
+	// todo переписать
 	nextTurn := game.toMinimax()
 	minimax(&nextTurn, 2)
-	game = nextTurn.toDomain(game.UUID)
+	game = nextTurn.toDomain(game.UUID, 0)
+	game.State = gs.GetGameState(game, 1)
 	err := gs.Database.SaveGame(game.toDatasource(), game.UUID)
 	if err != nil {
 		return err

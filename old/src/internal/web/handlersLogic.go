@@ -12,6 +12,7 @@ func (h GamePostHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var resp GameResponse
 
 	user, authErr := h.userService.Authentication(*r)
+	_ = user
 	if authErr != nil {
 		w.Header().Set("WWW-Authenticate", `Basic realm="api"`)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
