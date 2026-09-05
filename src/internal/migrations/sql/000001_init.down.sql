@@ -1,0 +1,6 @@
+BEGIN;
+
+DROP TABLE games;
+DROP TABLE client;
+
+COMMIT;

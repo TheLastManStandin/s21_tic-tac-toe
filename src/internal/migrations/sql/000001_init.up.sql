@@ -1,0 +1,15 @@
+BEGIN;
+
+CREATE TABLE client (
+    uuid UUID PRIMARY KEY,
+    name VARCHAR(30) NOT NULL UNIQUE,
+    password VARCHAR(60) NOT NULL
+);
+
+CREATE TABLE games (
+    uuid UUID PRIMARY KEY,
+    gametable INTEGER[] NOT NULL,
+    gamestate SMALLINT NOT NULL CHECK (gamestate BETWEEN 0 AND 5)
+);
+
+COMMIT;

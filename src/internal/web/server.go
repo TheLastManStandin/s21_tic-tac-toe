@@ -11,7 +11,6 @@ import (
 
 func InitHTTPServer(
 	lc fx.Lifecycle,
-	db datasource.Database,
 	log *zap.Logger,
 	mux *http.ServeMux,
 ) *http.Server {

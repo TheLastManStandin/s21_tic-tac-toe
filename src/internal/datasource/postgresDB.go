@@ -7,21 +7,30 @@ import (
 	"tickTackToe/internal/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/fx"
 )
 
 type PostgresDatabase struct {
 	pool *pgxpool.Pool
 }
 
-func NewPostgresDatabase() *PostgresDatabase {
+func NewPostgresDatabase(lc fx.Lifecycle) *PostgresDatabase {
 	pool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_CONNECTION_STRING"))
 	if err != nil {
 		panic(err)
 	}
+
 	if err := pool.Ping(context.Background()); err != nil {
 		pool.Close()
 		panic(err)
 	}
+
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			pool.Close()
+			return nil
+		},
+	})
 	log.Println("Connected to postgres database")
 	return &PostgresDatabase{pool: pool}
 }
