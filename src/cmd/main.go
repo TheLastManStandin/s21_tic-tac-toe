@@ -1,9 +1,9 @@
 package main
 
 import (
-	"internal/internal/di"
 	"log"
 	"os"
+	"tickTackToe/internal/di"
 
 	"github.com/joho/godotenv"
 )
