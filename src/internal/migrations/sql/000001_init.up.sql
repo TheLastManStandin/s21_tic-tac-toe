@@ -9,7 +9,8 @@ CREATE TABLE client (
 CREATE TABLE games (
     uuid UUID PRIMARY KEY,
     gametable INTEGER[] NOT NULL,
-    gamestate SMALLINT NOT NULL CHECK (gamestate BETWEEN 0 AND 5)
+    gamestate SMALLINT NOT NULL CHECK (gamestate BETWEEN 0 AND 5),
+    minimax BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 COMMIT;

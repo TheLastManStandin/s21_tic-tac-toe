@@ -2,10 +2,12 @@ package datasource
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"tickTackToe/internal/domain"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/fx"
 )
@@ -45,10 +47,10 @@ func (db *PostgresDatabase) SaveGame(ctx context.Context, game domain.GameInstan
 	}
 
 	_, err := db.pool.Exec(
-		context.Background(),
-		"INSERT INTO games(uuid, gametable, gamestate) VALUES($1,$2,$3) "+
-			"ON CONFLICT (uuid) DO UPDATE SET gametable = $2, gamestate = $3",
-		game.UUID, table, int(game.State),
+		ctx,
+		"INSERT INTO games(uuid, gametable, gamestate, minimax) VALUES($1,$2,$3,$4) "+
+			"ON CONFLICT (uuid) DO UPDATE SET gametable = $2, gamestate = $3, minimax = $4",
+		game.UUID, table, int(game.State), game.Minimax,
 	)
 	if err != nil {
 		//todo обработать если база не отвечает
@@ -57,6 +59,36 @@ func (db *PostgresDatabase) SaveGame(ctx context.Context, game domain.GameInstan
 	return nil
 }
 
-func FindByID(ctx context.Context, UUID string) (GameRow, error) {
+func (db *PostgresDatabase) FindByID(ctx context.Context, UUID string) (domain.GameInstance, error) {
+	var raw [][]int32
+	var gameState int
+	var minimax bool
+	var ret domain.GameInstance
 
+	err := db.pool.QueryRow(
+		ctx,
+		`SELECT gametable, gamestate, minimax FROM games WHERE uuid = $1`,
+		UUID,
+	).Scan(&raw, &gameState, &minimax)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ret, errors.New("game not found")
+		}
+		return ret, err
+	}
+
+	ret.UUID = UUID
+	ret.State = domain.GameState(gameState)
+	ret.Minimax = minimax
+	if len(raw) != 3 || len(raw[0]) != 3 {
+		return ret, errors.New("invalid table dimensions in database")
+	}
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			ret.Table[i][j] = int(raw[i][j])
+		}
+	}
+
+	return ret, nil
 }

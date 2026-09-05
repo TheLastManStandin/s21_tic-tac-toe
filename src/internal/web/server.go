@@ -35,10 +35,6 @@ func InitHTTPServer(
 		},
 		OnStop: func(ctx context.Context) error {
 			log.Info("SHUTDOWN")
-			err := db.Close()
-			if err != nil {
-				log.Info("DB CLOSE ERROR")
-			}
 			return srv.Shutdown(ctx)
 		},
 	})
