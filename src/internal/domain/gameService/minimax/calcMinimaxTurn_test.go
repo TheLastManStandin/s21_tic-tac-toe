@@ -117,9 +117,9 @@ func Test_minimax1(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			minimax(tt.args.game, tt.args.turn)
+			Minimax(tt.args.game, tt.args.turn)
 			if tt.args.game.table != tt.want.table {
-				t.Errorf("minimax() = %v, want %v", *tt.args.game, tt.want)
+				t.Errorf("Minimax() = %v, want %v", *tt.args.game, tt.want)
 			}
 		})
 	}

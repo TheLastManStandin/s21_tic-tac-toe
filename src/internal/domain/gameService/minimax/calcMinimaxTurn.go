@@ -1,6 +1,6 @@
 package minimax
 
-func minimax(game *minimaxGame, turn int) {
+func Minimax(game *minimaxGame, turn int) {
 	endgame := calculateEndgame(*game)
 	if endgame != Still {
 		game.worstMarch = endgame
@@ -25,7 +25,7 @@ func minimax(game *minimaxGame, turn int) {
 
 	for _, contour := range games {
 		oldContour = contour
-		minimax(&contour, 3-turn)
+		Minimax(&contour, 3-turn)
 		oldContour.worstMarch = contour.worstMarch
 
 		if turn == 1 {

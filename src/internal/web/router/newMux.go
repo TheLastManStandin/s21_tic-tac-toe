@@ -6,7 +6,7 @@ import (
 )
 
 func NewServeMux(
-	gameHandler handlers.GameHandler,
+	gameHandler *handlers.GameHandler,
 ) *http.ServeMux {
 	mux := http.NewServeMux()
 

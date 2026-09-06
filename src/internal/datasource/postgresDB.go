@@ -37,7 +37,7 @@ func NewPostgresDatabase(lc fx.Lifecycle) *PostgresDatabase {
 	return &PostgresDatabase{pool: pool}
 }
 
-func (db *PostgresDatabase) SaveGame(ctx context.Context, game domain.GameInstance, UUID string) error {
+func (db *PostgresDatabase) SaveGame(ctx context.Context, game domain.GameInstance) error {
 	table := make([][]int32, 3)
 	for i := 0; i < 3; i++ {
 		table[i] = make([]int32, 3)
@@ -64,6 +64,7 @@ func (db *PostgresDatabase) FindByID(ctx context.Context, UUID string) (domain.G
 	var gameState int
 	var minimax bool
 	var ret domain.GameInstance
+	//var logger zap.Logger = ctx.Value("logger").(zap.Logger)
 
 	err := db.pool.QueryRow(
 		ctx,
@@ -73,7 +74,7 @@ func (db *PostgresDatabase) FindByID(ctx context.Context, UUID string) (domain.G
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ret, errors.New("game not found")
+			return ret, DatabaseGameNotFount{}
 		}
 		return ret, err
 	}
@@ -91,4 +92,25 @@ func (db *PostgresDatabase) FindByID(ctx context.Context, UUID string) (domain.G
 	}
 
 	return ret, nil
+}
+
+func (db *PostgresDatabase) InitGame(ctx context.Context, UUID string) error {
+	table := make([][]int32, 3)
+	for i := 0; i < 3; i++ {
+		table[i] = make([]int32, 3)
+		for j := 0; j < 3; j++ {
+			table[i][j] = 0
+		}
+	}
+
+	_, err := db.pool.Exec(
+		ctx,
+		"INSERT INTO games(uuid, gametable, gamestate) VALUES($1,$2,$3) ",
+		UUID, table, 0,
+	)
+	if err != nil {
+		//todo обработать если база не отвечает
+		return err
+	}
+	return nil
 }
