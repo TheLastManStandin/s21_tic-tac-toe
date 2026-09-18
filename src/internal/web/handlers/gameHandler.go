@@ -1,16 +1,13 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"tickTackToe/internal/datasource"
 	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/gameService"
-	"tickTackToe/internal/web"
 
 	"go.uber.org/zap"
 )
@@ -30,7 +27,6 @@ func NewGameHandler(service *gameService.GameService, logger *zap.Logger) *GameH
 func (h *GameHandler) MakeTurn(w http.ResponseWriter, r *http.Request) {
 	gameUUID := r.PathValue("UUID")
 	defer r.Body.Close()
-	ctx := context.WithValue(r.Context(), "logger", h.logger)
 	h.logger.Info(fmt.Sprintf("Turning game %s", gameUUID))
 
 	// TODO: Авторизация (может ли пользователь играть эту игру)
@@ -41,56 +37,11 @@ func (h *GameHandler) MakeTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверка статуса игры (Получение игры)
-	domainGame, err := h.service.GetGame(ctx, gameUUID)
+	game, err := h.service.MakeTurn(r.Context(), gameUUID, request.X, request.Y)
 	if err != nil {
-		var gameNotFound datasource.DatabaseGameNotFount
-		if !errors.As(err, &gameNotFound) {
-			http.Error(w, "get game: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		domainGame, err = h.service.InitGame(ctx, gameUUID)
-		if err != nil {
-			http.Error(w, "init game: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
+		http.Error(w, "failed to make turn: "+err.Error(), http.StatusInternalServerError)
 	}
-	if domainGame.State == domain.FirstPlayerWon ||
-		domainGame.State == domain.SecondPlayerWon ||
-		domainGame.State == domain.Draw {
-		writeGameResponse(w, domainGame)
-		return
-	}
-	if domainGame.Table[request.X][request.Y] != 0 {
-		http.Error(w, "cell is already occupied", http.StatusConflict)
-		return
-	}
-
-	webGame := web.GameFromDomain(domainGame)
-
-	// Модификация игры
-	webGame.Table[request.X][request.Y] = 1 // TODO вынести в domain слой
-	moddedDomainGame := web.GameToDomain(webGame)
-	moddedDomainGame.State = h.service.CalculateGameState(moddedDomainGame, domain.SecondPlayerTurn)
-	if moddedDomainGame.State == domain.FirstPlayerWon ||
-		moddedDomainGame.State == domain.SecondPlayerWon ||
-		moddedDomainGame.State == domain.Draw {
-		writeGameResponse(w, moddedDomainGame)
-		return
-	}
-
-	moddedDomainGame, err = h.service.MinimaxTurn(ctx, moddedDomainGame)
-	if err != nil {
-		http.Error(w, "database error: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	moddedDomainGame.State = h.service.CalculateGameState(moddedDomainGame, domain.FirstPlayerTurn)
-	writeGameResponse(w, moddedDomainGame)
-
-	// Сохранение игры
-	//h.service.SaveGame(r.Context(), moddedDomainGame)
+	writeGameResponse(w, game)
 }
 
 func writeGameResponse(w http.ResponseWriter, game domain.GameInstance) {

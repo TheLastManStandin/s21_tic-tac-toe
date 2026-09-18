@@ -3,9 +3,11 @@ package datasource
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"tickTackToe/internal/domain"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,6 +17,9 @@ import (
 type PostgresDatabase struct {
 	pool *pgxpool.Pool
 }
+
+const maxAttempts = 5
+const baseDelay = time.Second * 5
 
 func NewPostgresDatabase(lc fx.Lifecycle) *PostgresDatabase {
 	pool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_CONNECTION_STRING"))
@@ -46,14 +51,20 @@ func (db *PostgresDatabase) SaveGame(ctx context.Context, game domain.GameInstan
 		}
 	}
 
-	_, err := db.pool.Exec(
-		ctx,
-		"INSERT INTO games(uuid, gametable, gamestate, minimax) VALUES($1,$2,$3,$4) "+
-			"ON CONFLICT (uuid) DO UPDATE SET gametable = $2, gamestate = $3, minimax = $4",
-		game.UUID, table, int(game.State), game.Minimax,
-	)
+	insertOperation := func() error {
+		_, err := db.pool.Exec(
+			ctx,
+			"INSERT INTO games(uuid, gametable, gamestate, minimax) VALUES($1,$2,$3,$4) "+
+				"ON CONFLICT (uuid) DO UPDATE SET gametable = $2, gamestate = $3, minimax = $4",
+			game.UUID, table, int(game.State), game.Minimax,
+		)
+		return err
+	}
+
+	// backoff
+	err := BackoffRetry(ctx, maxAttempts, baseDelay, insertOperation)
+
 	if err != nil {
-		//todo обработать если база не отвечает
 		return err
 	}
 	return nil
@@ -111,6 +122,34 @@ func (db *PostgresDatabase) InitGame(ctx context.Context, UUID string) error {
 	if err != nil {
 		//todo обработать если база не отвечает
 		return err
+	}
+	return nil
+}
+
+func BackoffRetry(
+	ctx context.Context,
+	maxAttempts int,
+	baseDelay time.Duration,
+	f func() error,
+) error {
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		err := f()
+		if err == nil {
+			return nil
+		}
+
+		if attempt == maxAttempts-1 {
+			return fmt.Errorf("all attempts failed, last error: %w", err)
+		}
+
+		multiplier := 1 << attempt
+		delay := time.Duration(multiplier) * baseDelay
+
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 	return nil
 }
