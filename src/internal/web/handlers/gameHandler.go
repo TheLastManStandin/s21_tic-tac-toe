@@ -7,17 +7,17 @@ import (
 	"io"
 	"net/http"
 	"tickTackToe/internal/domain"
-	"tickTackToe/internal/domain/gameService"
+	"tickTackToe/internal/domain/services"
 
 	"go.uber.org/zap"
 )
 
 type GameHandler struct {
-	service *gameService.GameService
+	service *services.GameService
 	logger  *zap.Logger
 }
 
-func NewGameHandler(service *gameService.GameService, logger *zap.Logger) *GameHandler {
+func NewGameHandler(service *services.GameService, logger *zap.Logger) *GameHandler {
 	return &GameHandler{
 		service: service,
 		logger:  logger,

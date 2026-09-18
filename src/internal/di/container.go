@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"tickTackToe/internal/datasource"
 	"tickTackToe/internal/domain/gameRepository"
-	"tickTackToe/internal/domain/gameService"
+	"tickTackToe/internal/domain/services"
 	"tickTackToe/internal/migrations"
 	"tickTackToe/internal/web"
 	"tickTackToe/internal/web/handlers"
@@ -24,7 +24,7 @@ func Build() {
 
 			router.NewServeMux,
 			handlers.NewGameHandler,
-			gameService.NewGameService,
+			services.NewGameService,
 			fx.Annotate(
 				datasource.NewPostgresDatabase,
 				fx.As(new(gameRepository.GameRepository)),

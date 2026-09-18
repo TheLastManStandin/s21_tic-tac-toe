@@ -1,4 +1,4 @@
-package gameService
+package services
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"tickTackToe/internal/datasource"
 	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/gameRepository"
-	"tickTackToe/internal/domain/gameService/minimax"
+	minimax2 "tickTackToe/internal/domain/services/minimax"
 
 	"go.uber.org/zap"
 )
@@ -24,9 +24,9 @@ func NewGameService(repo gameRepository.GameRepository, logger *zap.Logger) *Gam
 }
 
 func (gs *GameService) MinimaxTurn(ctx context.Context, game domain.GameInstance) domain.GameInstance {
-	internalGame := minimax.GameFromDomain(game)
-	minimax.Minimax(&internalGame, 2)
-	game = minimax.GameToDomain(internalGame, game)
+	internalGame := minimax2.GameFromDomain(game)
+	minimax2.Minimax(&internalGame, 2)
+	game = minimax2.GameToDomain(internalGame, game)
 
 	return game
 }
@@ -151,4 +151,26 @@ func winnerState(winner int) domain.GameState {
 	}
 
 	return domain.SecondPlayerWon
+}
+
+func (gs *GameService) GetGame(ctx context.Context, UUID string) (domain.GameInstance, error) {
+	return gs.Repo.FindByID(ctx, UUID)
+}
+
+func (gs *GameService) SaveGame(ctx context.Context, game domain.GameInstance) error {
+	return gs.Repo.SaveGame(ctx, game)
+}
+
+func (gs *GameService) InitGame(ctx context.Context, UUID string) (domain.GameInstance, error) {
+	game := domain.GameInstance{
+		UUID:    UUID,
+		State:   domain.WaitingForPlayers,
+		Minimax: true,
+	}
+
+	if err := gs.Repo.InitGame(ctx, UUID); err != nil {
+		return domain.GameInstance{}, err
+	}
+
+	return game, nil
 }

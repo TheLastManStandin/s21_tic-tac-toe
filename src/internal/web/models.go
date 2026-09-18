@@ -17,3 +17,8 @@ const (
 	SecondPlayerWon
 	Draw
 )
+
+type signUpRequest struct {
+	login string
+	pass  string
+}

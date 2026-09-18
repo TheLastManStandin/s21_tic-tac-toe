@@ -9,12 +9,12 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"tickTackToe/internal/domain/services"
 	"time"
 
 	"tickTackToe/internal/datasource"
 	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/gameRepository"
-	"tickTackToe/internal/domain/gameService"
 	"tickTackToe/internal/migrations"
 	"tickTackToe/internal/web/handlers"
 	"tickTackToe/internal/web/router"
@@ -140,7 +140,7 @@ func startTestApplication(
 			zap.NewNop,
 			router.NewServeMux,
 			handlers.NewGameHandler,
-			gameService.NewGameService,
+			services.NewGameService,
 			fx.Annotate(
 				datasource.NewPostgresDatabase,
 				fx.As(new(gameRepository.GameRepository)),
@@ -207,6 +207,7 @@ func makeTurn(
 		t.Fatalf("create turn request: %v", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
+	request.SetBasicAuth("e2e-player", "e2e-password")
 
 	response, err := client.Do(request)
 	if err != nil {

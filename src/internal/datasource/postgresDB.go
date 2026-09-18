@@ -3,11 +3,9 @@ package datasource
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"tickTackToe/internal/domain"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,9 +15,6 @@ import (
 type PostgresDatabase struct {
 	pool *pgxpool.Pool
 }
-
-const maxAttempts = 5
-const baseDelay = time.Second * 5
 
 func NewPostgresDatabase(lc fx.Lifecycle) *PostgresDatabase {
 	pool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_CONNECTION_STRING"))
@@ -61,13 +56,7 @@ func (db *PostgresDatabase) SaveGame(ctx context.Context, game domain.GameInstan
 		return err
 	}
 
-	// backoff
-	err := BackoffRetry(ctx, maxAttempts, baseDelay, insertOperation)
-
-	if err != nil {
-		return err
-	}
-	return nil
+	return BackoffRetry(ctx, maxAttempts, baseDelay, insertOperation)
 }
 
 func (db *PostgresDatabase) FindByID(ctx context.Context, UUID string) (domain.GameInstance, error) {
@@ -77,17 +66,28 @@ func (db *PostgresDatabase) FindByID(ctx context.Context, UUID string) (domain.G
 	var ret domain.GameInstance
 	//var logger zap.Logger = ctx.Value("logger").(zap.Logger)
 
-	err := db.pool.QueryRow(
-		ctx,
-		`SELECT gametable, gamestate, minimax FROM games WHERE uuid = $1`,
-		UUID,
-	).Scan(&raw, &gameState, &minimax)
+	var queryErr error
+	findOperation := func() error {
+		raw = nil
+		gameState = 0
+		minimax = false
+		queryErr = db.pool.QueryRow(
+			ctx,
+			`SELECT gametable, gamestate, minimax FROM games WHERE uuid = $1`,
+			UUID,
+		).Scan(&raw, &gameState, &minimax)
 
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ret, DatabaseGameNotFount{}
+		if errors.Is(queryErr, pgx.ErrNoRows) {
+			return nil
 		}
+		return queryErr
+	}
+
+	if err := BackoffRetry(ctx, maxAttempts, baseDelay, findOperation); err != nil {
 		return ret, err
+	}
+	if errors.Is(queryErr, pgx.ErrNoRows) {
+		return ret, DatabaseGameNotFount{}
 	}
 
 	ret.UUID = UUID
@@ -114,42 +114,15 @@ func (db *PostgresDatabase) InitGame(ctx context.Context, UUID string) error {
 		}
 	}
 
-	_, err := db.pool.Exec(
-		ctx,
-		"INSERT INTO games(uuid, gametable, gamestate) VALUES($1,$2,$3) ",
-		UUID, table, 0,
-	)
-	if err != nil {
-		//todo обработать если база не отвечает
+	insertOperation := func() error {
+		_, err := db.pool.Exec(
+			ctx,
+			"INSERT INTO games(uuid, gametable, gamestate) VALUES($1,$2,$3) "+
+				"ON CONFLICT (uuid) DO NOTHING",
+			UUID, table, 0,
+		)
 		return err
 	}
-	return nil
-}
 
-func BackoffRetry(
-	ctx context.Context,
-	maxAttempts int,
-	baseDelay time.Duration,
-	f func() error,
-) error {
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		err := f()
-		if err == nil {
-			return nil
-		}
-
-		if attempt == maxAttempts-1 {
-			return fmt.Errorf("all attempts failed, last error: %w", err)
-		}
-
-		multiplier := 1 << attempt
-		delay := time.Duration(multiplier) * baseDelay
-
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-	return nil
+	return BackoffRetry(ctx, maxAttempts, baseDelay, insertOperation)
 }
