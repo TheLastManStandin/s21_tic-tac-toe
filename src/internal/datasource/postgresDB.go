@@ -8,6 +8,7 @@ import (
 	"tickTackToe/internal/domain"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/fx"
 )
@@ -59,7 +60,7 @@ func (db *PostgresDatabase) SaveGame(ctx context.Context, game domain.GameInstan
 	return BackoffRetry(ctx, maxAttempts, baseDelay, insertOperation)
 }
 
-func (db *PostgresDatabase) FindByID(ctx context.Context, UUID string) (domain.GameInstance, error) {
+func (db *PostgresDatabase) FindGameByID(ctx context.Context, UUID string) (domain.GameInstance, error) {
 	var raw [][]int32
 	var gameState int
 	var minimax bool
@@ -125,4 +126,72 @@ func (db *PostgresDatabase) InitGame(ctx context.Context, UUID string) error {
 	}
 
 	return BackoffRetry(ctx, maxAttempts, baseDelay, insertOperation)
+}
+
+func (db *PostgresDatabase) GetUser(ctx context.Context, username string) (domain.UserInstance, error) {
+	userRow := UserRow{}
+	var queryErr error
+
+	getOperation := func() error {
+		userRow = UserRow{}
+		queryErr = db.pool.QueryRow(
+			ctx,
+			"SELECT uuid, name, password FROM client WHERE name = $1",
+			username,
+		).Scan(&userRow.UUID, &userRow.Username, &userRow.Password)
+
+		if errors.Is(queryErr, pgx.ErrNoRows) {
+			return nil
+		}
+		return queryErr
+	}
+
+	if err := BackoffRetry(ctx, maxAttempts, baseDelay, getOperation); err != nil {
+		return domain.UserInstance{}, err
+	}
+	if errors.Is(queryErr, pgx.ErrNoRows) {
+		return domain.UserInstance{}, queryErr
+	}
+
+	return domain.UserInstance{
+		UUID:     userRow.UUID,
+		Username: userRow.Username,
+		Password: userRow.Password,
+	}, nil
+}
+
+func (db *PostgresDatabase) InsertUser(ctx context.Context, user domain.UserInstance) error {
+	userRow := UserRow{
+		UUID:     user.UUID,
+		Username: user.Username,
+		Password: user.Password,
+	}
+	var operationErr error
+
+	insertOperation := func() error {
+		_, err := db.pool.Exec(
+			ctx,
+			"INSERT INTO client(uuid, name, password) VALUES($1, $2, $3)",
+			userRow.UUID,
+			userRow.Username,
+			userRow.Password,
+		)
+		if err == nil {
+			return nil
+		}
+
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			operationErr = domain.ErrUserAlreadyExists
+			return nil
+		}
+
+		return err
+	}
+
+	if err := BackoffRetry(ctx, maxAttempts, baseDelay, insertOperation); err != nil {
+		return err
+	}
+
+	return operationErr
 }

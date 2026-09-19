@@ -17,3 +17,9 @@ const (
 	SecondPlayerWon
 	Draw
 )
+
+type UserInstance struct {
+	Username string
+	Password string
+	UUID     string
+}

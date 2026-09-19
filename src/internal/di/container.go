@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"tickTackToe/internal/datasource"
-	"tickTackToe/internal/domain/gameRepository"
+	"tickTackToe/internal/domain/repositorys"
 	"tickTackToe/internal/domain/services"
 	"tickTackToe/internal/migrations"
 	"tickTackToe/internal/web"
 	"tickTackToe/internal/web/handlers"
+	"tickTackToe/internal/web/middleware"
 	"tickTackToe/internal/web/router"
 
 	"go.uber.org/fx"
@@ -23,11 +24,23 @@ func Build() {
 			zap.NewDevelopment,
 
 			router.NewServeMux,
+
 			handlers.NewGameHandler,
 			services.NewGameService,
+
+			handlers.NewAuthHandler,
+			services.NewUserService,
+
+			middleware.NewBasicAuth,
+
 			fx.Annotate(
 				datasource.NewPostgresDatabase,
-				fx.As(new(gameRepository.GameRepository)),
+				fx.As(new(repositorys.GameRepository)),
+				fx.As(new(repositorys.UserRepository)),
+			),
+			fx.Annotate(
+				services.NewUserService,
+				fx.As(new(middleware.UserAuthenticator)),
 			),
 		),
 		fx.Invoke(

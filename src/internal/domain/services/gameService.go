@@ -5,18 +5,18 @@ import (
 	"errors"
 	"tickTackToe/internal/datasource"
 	"tickTackToe/internal/domain"
-	"tickTackToe/internal/domain/gameRepository"
+	"tickTackToe/internal/domain/repositorys"
 	minimax2 "tickTackToe/internal/domain/services/minimax"
 
 	"go.uber.org/zap"
 )
 
 type GameService struct {
-	Repo   gameRepository.GameRepository
+	Repo   repositorys.GameRepository
 	logger *zap.Logger
 }
 
-func NewGameService(repo gameRepository.GameRepository, logger *zap.Logger) *GameService {
+func NewGameService(repo repositorys.GameRepository, logger *zap.Logger) *GameService {
 	return &GameService{
 		Repo:   repo,
 		logger: logger.Named("game_service"),
@@ -63,7 +63,7 @@ func (gs *GameService) MakeTurn(
 		return domainGame, nil
 	}
 	if domainGame.Table[x][y] != 0 {
-		return domain.GameInstance{}, errors.New("cell is already occupied")
+		return domainGame, errors.New("cell is already occupied")
 	}
 
 	// Модификация игры
@@ -154,7 +154,7 @@ func winnerState(winner int) domain.GameState {
 }
 
 func (gs *GameService) GetGame(ctx context.Context, UUID string) (domain.GameInstance, error) {
-	return gs.Repo.FindByID(ctx, UUID)
+	return gs.Repo.FindGameByID(ctx, UUID)
 }
 
 func (gs *GameService) SaveGame(ctx context.Context, game domain.GameInstance) error {

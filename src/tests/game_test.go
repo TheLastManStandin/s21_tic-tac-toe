@@ -14,7 +14,7 @@ import (
 
 	"tickTackToe/internal/datasource"
 	"tickTackToe/internal/domain"
-	"tickTackToe/internal/domain/gameRepository"
+	"tickTackToe/internal/domain/repositorys"
 	"tickTackToe/internal/migrations"
 	"tickTackToe/internal/web/handlers"
 	"tickTackToe/internal/web/router"
@@ -95,7 +95,7 @@ func TestGameAgainstMinimax(t *testing.T) {
 func startTestApplication(
 	t *testing.T,
 	gameUUIDs []string,
-) (*httptest.Server, gameRepository.GameRepository) {
+) (*httptest.Server, repositorys.GameRepository) {
 	t.Helper()
 
 	if os.Getenv("DATABASE_CONNECTION_STRING") == "" {
@@ -133,7 +133,7 @@ func startTestApplication(
 	deleteTestGames(connectionContext)
 
 	var mux *http.ServeMux
-	var repository gameRepository.GameRepository
+	var repository repositorys.GameRepository
 	application := fx.New(
 		fx.NopLogger,
 		fx.Provide(
@@ -143,7 +143,7 @@ func startTestApplication(
 			services.NewGameService,
 			fx.Annotate(
 				datasource.NewPostgresDatabase,
-				fx.As(new(gameRepository.GameRepository)),
+				fx.As(new(repositorys.GameRepository)),
 			),
 		),
 		fx.Populate(&mux, &repository),
@@ -269,13 +269,13 @@ func assertValidTurn(t *testing.T, previous, current [3][3]int) {
 
 func assertGameSaved(
 	t *testing.T,
-	repository gameRepository.GameRepository,
+	repository repositorys.GameRepository,
 	gameUUID string,
 	want gameResponse,
 ) {
 	t.Helper()
 
-	savedGame, err := repository.FindByID(context.Background(), gameUUID)
+	savedGame, err := repository.FindGameByID(context.Background(), gameUUID)
 	if err != nil {
 		t.Fatalf("load saved game: %v", err)
 	}

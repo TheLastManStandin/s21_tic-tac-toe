@@ -8,13 +8,18 @@ import (
 
 func NewServeMux(
 	gameHandler *handlers.GameHandler,
+	authHandler *handlers.AuthHandler,
+	auth *middleware.BasicAuth,
 ) *http.ServeMux {
 	mux := http.NewServeMux()
 	protectedMux := http.NewServeMux()
 
 	protectedMux.HandleFunc("POST /game/{UUID}", gameHandler.MakeTurn)
 
-	mux.Handle("/", middleware.BasicAuthWrap(protectedMux))
+	mux.HandleFunc("/register", authHandler.Register)
+	mux.HandleFunc("GET /auth", authHandler.Auth)
+
+	mux.Handle("/", auth.Wrap(protectedMux))
 
 	return mux
 }
