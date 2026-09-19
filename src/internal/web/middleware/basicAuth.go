@@ -34,13 +34,24 @@ func (a *BasicAuth) Wrap(handler http.Handler) http.Handler {
 			return
 		}
 
-		// TODO: Validate login and password through AuthService and put the
-		// authenticated user's UUID into the request context.
-		_, ok = a.authenticator.AuthenticateUser(r.Context(), login, password)
+		uuid, ok := a.authenticator.AuthenticateUser(
+			r.Context(),
+			login,
+			password,
+		)
+
 		if ok == false {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+
+		ctx := context.WithValue(
+			r.Context(),
+			"userUUID",
+			uuid,
+		)
+
+		r = r.WithContext(ctx)
 
 		handler.ServeHTTP(w, r)
 	})
