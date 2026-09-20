@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/services"
+	"tickTackToe/internal/web/requestcontext"
 
 	"go.uber.org/zap"
 )
@@ -75,4 +76,25 @@ func decodeValidateRequest(r *http.Request) (GameRequest, error) {
 	}
 
 	return req, nil
+}
+
+func (h *GameHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
+	uuid, ok := requestcontext.UserUUID(r.Context())
+	if !ok {
+		h.logger.Error("failed to find user uuid", zap.String("uuid", uuid))
+		http.Error(w, "no user uuid found", http.StatusUnauthorized)
+	}
+	game, err := h.service.InitGame(r.Context(), false, uuid)
+
+	if err != nil {
+		h.logger.Error("failed to initialize game", zap.Error(err))
+		http.Error(
+			w,
+			"failed to initialize game: "+err.Error(),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	writeGameResponse(w, game)
 }

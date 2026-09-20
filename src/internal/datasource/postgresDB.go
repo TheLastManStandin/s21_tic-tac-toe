@@ -106,7 +106,12 @@ func (db *PostgresDatabase) FindGameByID(ctx context.Context, UUID string) (doma
 	return ret, nil
 }
 
-func (db *PostgresDatabase) InitGame(ctx context.Context, UUID string) error {
+func (db *PostgresDatabase) InitGame(
+	ctx context.Context,
+	gameUUID string,
+	playerUUID string,
+	minimax bool,
+) error {
 	table := make([][]int32, 3)
 	for i := 0; i < 3; i++ {
 		table[i] = make([]int32, 3)
@@ -118,14 +123,58 @@ func (db *PostgresDatabase) InitGame(ctx context.Context, UUID string) error {
 	insertOperation := func() error {
 		_, err := db.pool.Exec(
 			ctx,
-			"INSERT INTO games(uuid, gametable, gamestate) VALUES($1,$2,$3) "+
-				"ON CONFLICT (uuid) DO NOTHING",
-			UUID, table, 0,
+			`INSERT INTO games(
+			uuid,
+			gametable,
+			gamestate,
+                  minimax,
+                  firstplayer)
+			VALUES($1,$2,$3,$4,$5) 
+			ON CONFLICT (uuid) DO NOTHING`,
+			gameUUID, table, 0, minimax, playerUUID,
 		)
 		return err
 	}
 
 	return BackoffRetry(ctx, maxAttempts, baseDelay, insertOperation)
+}
+
+func (db *PostgresDatabase) ConnectToGame(
+	ctx context.Context,
+	gameUUID string,
+	playerUUID string,
+) error {
+	connectOperation := func() error {
+		result, err := db.pool.Exec(
+			ctx,
+			`
+			UPDATE games
+			SET secondplayer = $1,
+				gamestate = $2
+			WHERE uuid = $3
+			  AND minimax = FALSE
+			  AND gamestate = $4
+			  AND secondplayer IS NULL
+			  AND firstplayer IS NOT NULL
+			  AND firstplayer <> $1
+			`,
+			playerUUID,
+			domain.FirstPlayerTurn,
+			gameUUID,
+			domain.WaitingForPlayers,
+		)
+		if err != nil {
+			return err
+		}
+
+		if result.RowsAffected() == 0 {
+			return domain.ErrCannotConnectToGame
+		}
+
+		return nil
+	}
+
+	return BackoffRetry(ctx, maxAttempts, baseDelay, connectOperation)
 }
 
 func (db *PostgresDatabase) GetUser(ctx context.Context, username string) (domain.UserInstance, error) {

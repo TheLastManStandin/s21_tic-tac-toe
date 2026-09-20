@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"tickTackToe/internal/web/requestcontext"
 )
 
 type UserAuthenticator interface {
@@ -45,14 +46,8 @@ func (a *BasicAuth) Wrap(handler http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(
-			r.Context(),
-			"userUUID",
-			uuid,
-		)
+		ctx := requestcontext.WithUserUUID(r.Context(), uuid)
 
-		r = r.WithContext(ctx)
-
-		handler.ServeHTTP(w, r)
+		handler.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

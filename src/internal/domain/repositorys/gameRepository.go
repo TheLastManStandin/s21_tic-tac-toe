@@ -8,5 +8,10 @@ import (
 type GameRepository interface {
 	SaveGame(ctx context.Context, game domain.GameInstance) error
 	FindGameByID(ctx context.Context, UUID string) (domain.GameInstance, error)
-	InitGame(ctx context.Context, UUID string) error
+	InitGame(
+		ctx context.Context,
+		gameUUID string,
+		playerUUID string,
+		minimax bool,
+	) error
 }

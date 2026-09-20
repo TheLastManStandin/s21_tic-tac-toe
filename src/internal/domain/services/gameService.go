@@ -3,11 +3,11 @@ package services
 import (
 	"context"
 	"errors"
-	"tickTackToe/internal/datasource"
 	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/repositorys"
 	minimax2 "tickTackToe/internal/domain/services/minimax"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -46,18 +46,18 @@ func (gs *GameService) MakeTurn(
 	// Проверка статуса игры (Получение игры)
 	domainGame, err := gs.GetGame(ctx, gameUUID)
 	if err != nil {
-		var gameNotFound datasource.DatabaseGameNotFount
-		if !errors.As(err, &gameNotFound) {
-			logger.Error("failed to get game", zap.Error(err))
-			return domain.GameInstance{}, errors.New("get game: " + err.Error())
-		}
+		//var gameNotFound datasource.DatabaseGameNotFount
+		//if !errors.As(err, &gameNotFound) {
+		logger.Error("failed to get game", zap.Error(err))
+		return domain.GameInstance{}, errors.New("get game: " + err.Error())
+		//}
 
-		logger.Info("game not found, initializing")
-		domainGame, err = gs.InitGame(ctx, gameUUID)
-		if err != nil {
-			logger.Error("failed to initialize game", zap.Error(err))
-			return domain.GameInstance{}, errors.New("init game: " + err.Error())
-		}
+		//logger.Info("game not found, initializing")
+		//domainGame, err = gs.InitGame(ctx, )
+		//if err != nil {
+		//	logger.Error("failed to initialize game", zap.Error(err))
+		//	return domain.GameInstance{}, errors.New("init game: " + err.Error())
+		//}
 	}
 	if domainGame.State.IsFinished() {
 		return domainGame, nil
@@ -161,16 +161,19 @@ func (gs *GameService) SaveGame(ctx context.Context, game domain.GameInstance) e
 	return gs.Repo.SaveGame(ctx, game)
 }
 
-func (gs *GameService) InitGame(ctx context.Context, UUID string) (domain.GameInstance, error) {
+func (gs *GameService) InitGame(
+	ctx context.Context,
+	minimax bool,
+	playerUUID string,
+) (domain.GameInstance, error) {
 	game := domain.GameInstance{
-		UUID:    UUID,
+		UUID:    uuid.New().String(),
 		State:   domain.WaitingForPlayers,
-		Minimax: true,
+		Minimax: minimax,
 	}
 
-	if err := gs.Repo.InitGame(ctx, UUID); err != nil {
+	if err := gs.Repo.InitGame(ctx, game.UUID, playerUUID, minimax); err != nil {
 		return domain.GameInstance{}, err
 	}
-
 	return game, nil
 }
