@@ -203,3 +203,10 @@ func (gs *GameService) InitGame(
 	}
 	return game, nil
 }
+
+func (gs *GameService) JoinGame(ctx context.Context, gameUUID string, playerUUID string) error {
+	if err := gs.Repo.ConnectToGame(ctx, gameUUID, playerUUID); err != nil {
+		return fmt.Errorf("join game: %w", err)
+	}
+	return nil
+}

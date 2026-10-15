@@ -10,6 +10,7 @@ import (
 	"tickTackToe/internal/domain/services"
 	"tickTackToe/internal/web/requestcontext"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -155,4 +156,33 @@ func decodeValidateRobotRequest(r *http.Request) (RobotRequest, error) {
 	}
 
 	return RobotRequest{WithRobot: *body.WithRobot}, nil
+}
+
+func (h *GameHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
+	playerUUID, ok := requestcontext.UserUUID(r.Context())
+	if !ok || playerUUID == "" {
+		h.logger.Error("failed to find user uuid", zap.String("uuid", playerUUID))
+		http.Error(w, "no user uuid found", http.StatusUnauthorized)
+		return
+	}
+
+	gameUUID := r.PathValue("UUID")
+
+	if _, err := uuid.Parse(gameUUID); err != nil {
+		http.Error(w, "invalid game UUID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.JoinGame(r.Context(), gameUUID, playerUUID); err != nil {
+		if errors.Is(err, domain.ErrCannotConnectToGame) {
+			http.Error(w, domain.ErrCannotConnectToGame.Error(), http.StatusConflict)
+			return
+		}
+
+		h.logger.Error("failed to join game", zap.String("game_uuid", gameUUID), zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

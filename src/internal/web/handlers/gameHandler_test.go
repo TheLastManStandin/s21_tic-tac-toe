@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -21,6 +22,15 @@ type gameRepositoryStub struct {
 	playerUUID    string
 	minimax       bool
 	initGameErr   error
+	connectCalls  int
+	connectErr    error
+}
+
+func (r *gameRepositoryStub) ConnectToGame(_ context.Context, gameUUID, playerUUID string) error {
+	r.connectCalls++
+	r.gameUUID = gameUUID
+	r.playerUUID = playerUUID
+	return r.connectErr
 }
 
 func (r *gameRepositoryStub) SaveGame(context.Context, domain.GameInstance) error {
@@ -45,6 +55,50 @@ func (r *gameRepositoryStub) InitGame(
 	r.playerUUID = playerUUID
 	r.minimax = minimax
 	return r.initGameErr
+}
+
+func TestGameHandlerJoinGame(t *testing.T) {
+	const gameUUID = "11111111-1111-4111-8111-111111111111"
+	const playerUUID = "22222222-2222-4222-8222-222222222222"
+	tests := []struct {
+		name       string
+		gameUUID   string
+		playerUUID string
+		err        error
+		wantStatus int
+		wantCalls  int
+		wantBody   string
+	}{
+		{name: "success", gameUUID: gameUUID, playerUUID: playerUUID, wantStatus: http.StatusNoContent, wantCalls: 1},
+		{name: "unauthenticated", gameUUID: gameUUID, wantStatus: http.StatusUnauthorized, wantBody: "no user uuid found\n"},
+		{name: "invalid UUID", gameUUID: "invalid", playerUUID: playerUUID, wantStatus: http.StatusBadRequest, wantBody: "invalid game UUID\n"},
+		{name: "cannot join", gameUUID: gameUUID, playerUUID: playerUUID, err: fmt.Errorf("repository: %w", domain.ErrCannotConnectToGame), wantStatus: http.StatusConflict, wantCalls: 1, wantBody: "cannot connect to game\n"},
+		{name: "database error", gameUUID: gameUUID, playerUUID: playerUUID, err: errors.New("private database details"), wantStatus: http.StatusInternalServerError, wantCalls: 1, wantBody: "internal server error\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repository := &gameRepositoryStub{connectErr: tt.err}
+			service := services.NewGameService(repository, zap.NewNop())
+			handler := NewGameHandler(service, zap.NewNop())
+			request := httptest.NewRequest(http.MethodPost, "/game/"+tt.gameUUID+"/join", nil)
+			if tt.playerUUID != "" {
+				request = request.WithContext(requestcontext.WithUserUUID(request.Context(), tt.playerUUID))
+			}
+			response := httptest.NewRecorder()
+			mux := http.NewServeMux()
+			mux.HandleFunc("POST /game/{UUID}/join", handler.JoinGame)
+			mux.ServeHTTP(response, request)
+			if response.Code != tt.wantStatus || response.Body.String() != tt.wantBody {
+				t.Fatalf("response = (%d, %q), want (%d, %q)", response.Code, response.Body.String(), tt.wantStatus, tt.wantBody)
+			}
+			if repository.connectCalls != tt.wantCalls {
+				t.Fatalf("ConnectToGame calls = %d, want %d", repository.connectCalls, tt.wantCalls)
+			}
+			if tt.wantCalls > 0 && (repository.gameUUID != tt.gameUUID || repository.playerUUID != tt.playerUUID) {
+				t.Fatalf("ConnectToGame received wrong identifiers: %q, %q", repository.gameUUID, repository.playerUUID)
+			}
+		})
+	}
 }
 
 func TestGameHandlerCreateGame(t *testing.T) {
