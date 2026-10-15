@@ -66,6 +66,7 @@ func (h *GameHandler) MakeTurn(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("failed to make turn", zap.Error(err))
 		http.Error(w, message, status)
 		return
+
 	}
 	writeGameResponse(w, game)
 }
