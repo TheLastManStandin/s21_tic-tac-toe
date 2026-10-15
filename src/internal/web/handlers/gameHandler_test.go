@@ -17,15 +17,24 @@ import (
 )
 
 type gameRepositoryStub struct {
-	initGameCalls int
-	gameUUID      string
-	playerUUID    string
-	minimax       bool
-	initGameErr   error
-	connectCalls  int
-	connectErr    error
-	foundGame     domain.GameInstance
-	findGameErr   error
+	initGameCalls  int
+	gameUUID       string
+	playerUUID     string
+	minimax        bool
+	initGameErr    error
+	connectCalls   int
+	connectErr     error
+	foundGame      domain.GameInstance
+	findGameErr    error
+	availableGames []domain.GameInstance
+	listGamesErr   error
+	listGamesCalls int
+}
+
+func (r *gameRepositoryStub) ListAvailableGames(_ context.Context, playerUUID string) ([]domain.GameInstance, error) {
+	r.listGamesCalls++
+	r.playerUUID = playerUUID
+	return r.availableGames, r.listGamesErr
 }
 
 func (r *gameRepositoryStub) JoinGame(_ context.Context, gameUUID, playerUUID string) error {
