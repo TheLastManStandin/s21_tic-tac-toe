@@ -17,6 +17,7 @@ import (
 	"tickTackToe/internal/domain/repositorys"
 	"tickTackToe/internal/migrations"
 	"tickTackToe/internal/web/handlers"
+	"tickTackToe/internal/web/middleware"
 	"tickTackToe/internal/web/router"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -97,6 +98,10 @@ func startTestApplication(
 	gameUUIDs []string,
 ) (*httptest.Server, repositorys.GameRepository) {
 	t.Helper()
+	const (
+		testUsername = "e2e-player"
+		testPassword = "e2e-password"
+	)
 
 	if os.Getenv("DATABASE_CONNECTION_STRING") == "" {
 		_ = godotenv.Load("../.env")
@@ -131,22 +136,38 @@ func startTestApplication(
 		}
 	}
 	deleteTestGames(connectionContext)
+	if _, err := database.Exec(
+		connectionContext,
+		"DELETE FROM client WHERE name = $1",
+		testUsername,
+	); err != nil {
+		database.Close()
+		t.Fatalf("delete test user: %v", err)
+	}
 
 	var mux *http.ServeMux
 	var repository repositorys.GameRepository
+	var userService *services.UserService
 	application := fx.New(
 		fx.NopLogger,
 		fx.Provide(
 			zap.NewNop,
 			router.NewServeMux,
 			handlers.NewGameHandler,
+			handlers.NewAuthHandler,
 			services.NewGameService,
+			services.NewUserService,
+			middleware.NewBasicAuth,
+			func(service *services.UserService) middleware.UserAuthenticator {
+				return service
+			},
 			fx.Annotate(
 				datasource.NewPostgresDatabase,
 				fx.As(new(repositorys.GameRepository)),
+				fx.As(new(repositorys.UserRepository)),
 			),
 		),
-		fx.Populate(&mux, &repository),
+		fx.Populate(&mux, &repository, &userService),
 	)
 
 	startContext, cancelStart := context.WithTimeout(context.Background(), 5*time.Second)
@@ -154,6 +175,29 @@ func startTestApplication(
 	if err := application.Start(startContext); err != nil {
 		database.Close()
 		t.Fatalf("start test application: %v", err)
+	}
+
+	userUUID, err := userService.RegisterUser(
+		context.Background(),
+		testUsername,
+		testPassword,
+	)
+	if err != nil {
+		_ = application.Stop(context.Background())
+		database.Close()
+		t.Fatalf("register test user: %v", err)
+	}
+	for _, gameUUID := range gameUUIDs {
+		if err := repository.InitGame(
+			context.Background(),
+			gameUUID,
+			userUUID,
+			true,
+		); err != nil {
+			_ = application.Stop(context.Background())
+			database.Close()
+			t.Fatalf("initialize test game %s: %v", gameUUID, err)
+		}
 	}
 
 	server := httptest.NewServer(mux)
@@ -167,6 +211,13 @@ func startTestApplication(
 		}
 
 		deleteTestGames(stopContext)
+		if _, err := database.Exec(
+			stopContext,
+			"DELETE FROM client WHERE name = $1",
+			testUsername,
+		); err != nil {
+			t.Errorf("delete test user: %v", err)
+		}
 		database.Close()
 	})
 

@@ -29,7 +29,7 @@ func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	uuid, err := h.service.RegisterUser(r.Context(), username, password)
 
 	if err != nil {
-		http.Error(w, "Failed to register user", http.StatusInternalServerError)
+		http.Error(w, "Failed to register user: "+err.Error(), http.StatusInternalServerError)
 		h.logger.Error("Failed to register user", zap.Error(err))
 		return
 	}

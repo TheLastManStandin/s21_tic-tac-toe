@@ -83,6 +83,7 @@ func (h *GameHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		h.logger.Error("failed to find user uuid", zap.String("uuid", uuid))
 		http.Error(w, "no user uuid found", http.StatusUnauthorized)
+		return
 	}
 	game, err := h.service.InitGame(r.Context(), false, uuid)
 
@@ -96,5 +97,5 @@ func (h *GameHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeGameResponse(w, game)
+	_, _ = w.Write([]byte(game.UUID + "\n"))
 }
