@@ -1,10 +1,12 @@
 package domain
 
 type GameInstance struct {
-	Table   [3][3]int
-	State   GameState
-	UUID    string
-	Minimax bool
+	Table            [3][3]int
+	State            GameState
+	UUID             string
+	Minimax          bool
+	FirstPlayerUUID  string
+	SecondPlayerUUID string
 }
 
 type GameState int32

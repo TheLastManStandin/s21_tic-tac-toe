@@ -62,21 +62,22 @@ func (db *PostgresDatabase) SaveGame(ctx context.Context, game domain.GameInstan
 
 func (db *PostgresDatabase) FindGameByID(ctx context.Context, UUID string) (domain.GameInstance, error) {
 	var raw [][]int32
-	var gameState int
-	var minimax bool
 	var ret domain.GameInstance
 	//var logger zap.Logger = ctx.Value("logger").(zap.Logger)
 
 	var queryErr error
 	findOperation := func() error {
-		raw = nil
-		gameState = 0
-		minimax = false
 		queryErr = db.pool.QueryRow(
 			ctx,
-			`SELECT gametable, gamestate, minimax FROM games WHERE uuid = $1`,
+			`SELECT 
+				gametable, 
+				gamestate, 
+				minimax, 
+				firstplayer, 
+            	COALESCE(secondplayer::text, '') 
+			FROM games WHERE uuid = $1`,
 			UUID,
-		).Scan(&raw, &gameState, &minimax)
+		).Scan(&raw, &ret.State, &ret.Minimax, &ret.FirstPlayerUUID, &ret.SecondPlayerUUID)
 
 		if errors.Is(queryErr, pgx.ErrNoRows) {
 			return nil
@@ -92,8 +93,6 @@ func (db *PostgresDatabase) FindGameByID(ctx context.Context, UUID string) (doma
 	}
 
 	ret.UUID = UUID
-	ret.State = domain.GameState(gameState)
-	ret.Minimax = minimax
 	if len(raw) != 3 || len(raw[0]) != 3 {
 		return ret, errors.New("invalid table dimensions in database")
 	}

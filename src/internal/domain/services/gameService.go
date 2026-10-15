@@ -34,6 +34,7 @@ func (gs *GameService) MinimaxTurn(ctx context.Context, game domain.GameInstance
 func (gs *GameService) MakeTurn(
 	ctx context.Context,
 	gameUUID string,
+	userUUID string,
 	x, y int,
 ) (domain.GameInstance, error) {
 	logger := gs.logger.With(
@@ -46,19 +47,14 @@ func (gs *GameService) MakeTurn(
 	// Проверка статуса игры (Получение игры)
 	domainGame, err := gs.GetGame(ctx, gameUUID)
 	if err != nil {
-		//var gameNotFound datasource.DatabaseGameNotFount
-		//if !errors.As(err, &gameNotFound) {
 		logger.Error("failed to get game", zap.Error(err))
 		return domain.GameInstance{}, errors.New("get game: " + err.Error())
-		//}
-
-		//logger.Info("game not found, initializing")
-		//domainGame, err = gs.InitGame(ctx, )
-		//if err != nil {
-		//	logger.Error("failed to initialize game", zap.Error(err))
-		//	return domain.GameInstance{}, errors.New("init game: " + err.Error())
-		//}
 	}
+
+	if domainGame.FirstPlayerUUID != userUUID || domainGame.SecondPlayerUUID != userUUID {
+		return domain.GameInstance{}, domain.ErrGameAccessDenied
+	}
+
 	if domainGame.State.IsFinished() {
 		return domainGame, nil
 	}

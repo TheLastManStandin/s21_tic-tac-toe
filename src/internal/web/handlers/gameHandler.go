@@ -27,10 +27,14 @@ func NewGameHandler(service *services.GameService, logger *zap.Logger) *GameHand
 
 func (h *GameHandler) MakeTurn(w http.ResponseWriter, r *http.Request) {
 	gameUUID := r.PathValue("UUID")
+	userUUID, ok := requestcontext.UserUUID(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	defer r.Body.Close()
 	h.logger.Info(fmt.Sprintf("Turning game %s", gameUUID))
-
-	// TODO: Авторизация (может ли пользователь играть эту игру)
 
 	request, err := decodeValidateTurnRequest(r)
 	if err != nil {
@@ -38,7 +42,7 @@ func (h *GameHandler) MakeTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	game, err := h.service.MakeTurn(r.Context(), gameUUID, request.X, request.Y)
+	game, err := h.service.MakeTurn(r.Context(), gameUUID, userUUID, request.X, request.Y)
 	if err != nil {
 		http.Error(w, "failed to make turn: "+err.Error(), http.StatusInternalServerError)
 	}
