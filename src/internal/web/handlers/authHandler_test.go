@@ -14,8 +14,18 @@ import (
 )
 
 type userRepositoryStub struct {
-	insertErr   error
-	insertCalls int
+	insertErr     error
+	insertCalls   int
+	foundUser     domain.UserInstance
+	findErr       error
+	findCalls     int
+	requestedUUID string
+}
+
+func (r *userRepositoryStub) FindUserByID(_ context.Context, userUUID string) (domain.UserInstance, error) {
+	r.findCalls++
+	r.requestedUUID = userUUID
+	return r.foundUser, r.findErr
 }
 
 func (r *userRepositoryStub) GetUser(context.Context, string) (domain.UserInstance, error) {

@@ -17,6 +17,8 @@ func ErrorResponse(err error) (int, string) {
 		return http.StatusForbidden, domain.ErrGameAccessDenied.Error()
 	case errors.Is(err, domain.ErrGameNotFound):
 		return http.StatusNotFound, domain.ErrGameNotFound.Error()
+	case errors.Is(err, domain.ErrUserNotFound):
+		return http.StatusNotFound, domain.ErrUserNotFound.Error()
 	}
 
 	for _, conflict := range []error{

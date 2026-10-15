@@ -22,3 +22,8 @@ type GameDetailsResponse struct {
 	FirstPlayerUUID  string    `json:"firstPlayerUUID"`
 	SecondPlayerUUID string    `json:"secondPlayerUUID"`
 }
+
+type UserResponse struct {
+	UUID     string `json:"uuid"`
+	Username string `json:"username"`
+}

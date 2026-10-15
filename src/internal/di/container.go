@@ -29,6 +29,7 @@ func Build() {
 			services.NewGameService,
 
 			handlers.NewAuthHandler,
+			handlers.NewUserHandler,
 			services.NewUserService,
 
 			middleware.NewBasicAuth,

@@ -6,6 +6,7 @@ import (
 )
 
 type UserRepository interface {
+	FindUserByID(ctx context.Context, userUUID string) (domain.UserInstance, error)
 	GetUser(ctx context.Context, username string) (domain.UserInstance, error)
 	InsertUser(ctx context.Context, user domain.UserInstance) error
 }

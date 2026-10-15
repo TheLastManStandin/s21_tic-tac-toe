@@ -155,6 +155,7 @@ func startTestApplication(
 			router.NewServeMux,
 			handlers.NewGameHandler,
 			handlers.NewAuthHandler,
+			handlers.NewUserHandler,
 			services.NewGameService,
 			services.NewUserService,
 			middleware.NewBasicAuth,
