@@ -124,11 +124,11 @@ func (db *PostgresDatabase) InitGame(
 		_, err := db.pool.Exec(
 			ctx,
 			`INSERT INTO games(
-			uuid,
-			gametable,
-			gamestate,
-                  minimax,
-                  firstplayer)
+				uuid,
+				gametable,
+				gamestate,
+				minimax,
+				firstplayer)
 			VALUES($1,$2,$3,$4,$5) 
 			ON CONFLICT (uuid) DO NOTHING`,
 			gameUUID, table, 0, minimax, playerUUID,

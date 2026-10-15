@@ -54,7 +54,11 @@ func TestGameHandlerCreateGame(t *testing.T) {
 		repository := &gameRepositoryStub{}
 		service := services.NewGameService(repository, zap.NewNop())
 		handler := NewGameHandler(service, zap.NewNop())
-		request := httptest.NewRequest(http.MethodPost, "/game", nil)
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/game",
+			strings.NewReader(`{"WithRobot":false}`),
+		)
 		request = request.WithContext(
 			requestcontext.WithUserUUID(request.Context(), playerUUID),
 		)
@@ -92,7 +96,11 @@ func TestGameHandlerCreateGame(t *testing.T) {
 		repository := &gameRepositoryStub{}
 		service := services.NewGameService(repository, zap.NewNop())
 		handler := NewGameHandler(service, zap.NewNop())
-		request := httptest.NewRequest(http.MethodPost, "/game", nil)
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/game",
+			strings.NewReader(`{"WithRobot":false}`),
+		)
 		response := httptest.NewRecorder()
 
 		handler.CreateGame(response, request)
@@ -114,7 +122,11 @@ func TestGameHandlerCreateGame(t *testing.T) {
 		repository := &gameRepositoryStub{initGameErr: errors.New("database unavailable")}
 		service := services.NewGameService(repository, zap.NewNop())
 		handler := NewGameHandler(service, zap.NewNop())
-		request := httptest.NewRequest(http.MethodPost, "/game", nil)
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/game",
+			strings.NewReader(`{"WithRobot":false}`),
+		)
 		request = request.WithContext(
 			requestcontext.WithUserUUID(request.Context(), playerUUID),
 		)
@@ -133,4 +145,101 @@ func TestGameHandlerCreateGame(t *testing.T) {
 			t.Fatalf("InitGame calls = %d, want 1", repository.initGameCalls)
 		}
 	})
+
+	t.Run("creates game against robot", func(t *testing.T) {
+		const playerUUID = "33333333-3333-4333-8333-333333333333"
+
+		repository := &gameRepositoryStub{}
+		service := services.NewGameService(repository, zap.NewNop())
+		handler := NewGameHandler(service, zap.NewNop())
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/game",
+			strings.NewReader(`{"WithRobot":true}`),
+		)
+		request = request.WithContext(
+			requestcontext.WithUserUUID(request.Context(), playerUUID),
+		)
+		response := httptest.NewRecorder()
+
+		handler.CreateGame(response, request)
+
+		if response.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+		}
+		if !repository.minimax {
+			t.Fatal("minimax = false, want true for game against robot")
+		}
+	})
+
+	t.Run("rejects invalid robot option", func(t *testing.T) {
+		const playerUUID = "44444444-4444-4444-8444-444444444444"
+
+		repository := &gameRepositoryStub{}
+		service := services.NewGameService(repository, zap.NewNop())
+		handler := NewGameHandler(service, zap.NewNop())
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/game",
+			strings.NewReader(`{"WithRobot":"true"}`),
+		)
+		request = request.WithContext(
+			requestcontext.WithUserUUID(request.Context(), playerUUID),
+		)
+		response := httptest.NewRecorder()
+
+		handler.CreateGame(response, request)
+
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d", response.Code, http.StatusBadRequest)
+		}
+		if repository.initGameCalls != 0 {
+			t.Fatalf(
+				"InitGame calls = %d, want 0 for invalid request",
+				repository.initGameCalls,
+			)
+		}
+	})
+}
+
+func TestDecodeValidateRobotRequest(t *testing.T) {
+	tests := []struct {
+		name      string
+		body      string
+		wantRobot bool
+		wantError bool
+	}{
+		{name: "robot enabled", body: `{"WithRobot":true}`, wantRobot: true},
+		{name: "robot disabled", body: `{"WithRobot":false}`},
+		{name: "missing field", body: `{}`, wantError: true},
+		{name: "null field", body: `{"WithRobot":null}`, wantError: true},
+		{name: "string instead of bool", body: `{"WithRobot":"true"}`, wantError: true},
+		{name: "unknown field", body: `{"WithRobot":true,"Other":false}`, wantError: true},
+		{name: "multiple objects", body: `{"WithRobot":true}{"WithRobot":false}`, wantError: true},
+		{name: "empty body", body: ``, wantError: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := httptest.NewRequest(
+				http.MethodPost,
+				"/game",
+				strings.NewReader(tt.body),
+			)
+
+			got, err := decodeValidateRobotRequest(request)
+			if tt.wantError {
+				if err == nil {
+					t.Fatalf("decodeValidateRobotRequest() error = nil, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("decodeValidateRobotRequest() error = %v", err)
+			}
+			if got.WithRobot != tt.wantRobot {
+				t.Fatalf("WithRobot = %t, want %t", got.WithRobot, tt.wantRobot)
+			}
+		})
+	}
 }

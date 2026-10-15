@@ -1,6 +1,6 @@
 package handlers
 
-type GameRequest struct {
+type TurnRequest struct {
 	X int `json:"X"`
 	Y int `json:"Y"`
 }
@@ -8,4 +8,8 @@ type GameRequest struct {
 type GameResponse struct {
 	Table [3][3]int `json:"table"`
 	State string    `json:"state"`
+}
+
+type RobotRequest struct {
+	WithRobot bool `json:"WithRobot"`
 }

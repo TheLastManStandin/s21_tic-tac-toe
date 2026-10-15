@@ -32,7 +32,7 @@ func (h *GameHandler) MakeTurn(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Авторизация (может ли пользователь играть эту игру)
 
-	request, err := decodeValidateRequest(r)
+	request, err := decodeValidateTurnRequest(r)
 	if err != nil {
 		http.Error(w, "invalid request: "+err.Error(), http.StatusBadRequest)
 		return
@@ -53,40 +53,48 @@ func writeGameResponse(w http.ResponseWriter, game domain.GameInstance) {
 	})
 }
 
-func decodeValidateRequest(r *http.Request) (GameRequest, error) {
-	var req GameRequest
+func decodeValidateTurnRequest(r *http.Request) (TurnRequest, error) {
+	var req TurnRequest
 
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 
 	if err := decoder.Decode(&req); err != nil {
-		return GameRequest{}, fmt.Errorf("decode JSON: %w", err)
+		return TurnRequest{}, fmt.Errorf("decode JSON: %w", err)
 	}
 
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return GameRequest{}, errors.New("body must contain exactly one JSON object")
+		return TurnRequest{}, errors.New("body must contain exactly one JSON object")
 	}
 
 	if req.X < 0 || req.X > 2 {
-		return GameRequest{}, errors.New("X must be between 0 and 2")
+		return TurnRequest{}, errors.New("X must be between 0 and 2")
 	}
 
 	if req.Y < 0 || req.Y > 2 {
-		return GameRequest{}, errors.New("Y must be between 0 and 2")
+		return TurnRequest{}, errors.New("Y must be between 0 and 2")
 	}
 
 	return req, nil
 }
 
 func (h *GameHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
 	uuid, ok := requestcontext.UserUUID(r.Context())
 	if !ok {
 		h.logger.Error("failed to find user uuid", zap.String("uuid", uuid))
 		http.Error(w, "no user uuid found", http.StatusUnauthorized)
 		return
 	}
-	game, err := h.service.InitGame(r.Context(), false, uuid)
 
+	request, err := decodeValidateRobotRequest(r)
+	if err != nil {
+		http.Error(w, "invalid request: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	game, err := h.service.InitGame(r.Context(), request.WithRobot, uuid)
 	if err != nil {
 		h.logger.Error("failed to initialize game", zap.Error(err))
 		http.Error(
@@ -98,4 +106,27 @@ func (h *GameHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, _ = w.Write([]byte(game.UUID + "\n"))
+}
+
+func decodeValidateRobotRequest(r *http.Request) (RobotRequest, error) {
+	var body struct {
+		WithRobot *bool `json:"WithRobot"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&body); err != nil {
+		return RobotRequest{}, fmt.Errorf("decode JSON: %w", err)
+	}
+
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return RobotRequest{}, errors.New("body must contain exactly one JSON object")
+	}
+
+	if body.WithRobot == nil {
+		return RobotRequest{}, errors.New("WithRobot is required and must be a boolean")
+	}
+
+	return RobotRequest{WithRobot: *body.WithRobot}, nil
 }
