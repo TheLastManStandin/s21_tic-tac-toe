@@ -24,9 +24,11 @@ type gameRepositoryStub struct {
 	initGameErr   error
 	connectCalls  int
 	connectErr    error
+	foundGame     domain.GameInstance
+	findGameErr   error
 }
 
-func (r *gameRepositoryStub) ConnectToGame(_ context.Context, gameUUID, playerUUID string) error {
+func (r *gameRepositoryStub) JoinGame(_ context.Context, gameUUID, playerUUID string) error {
 	r.connectCalls++
 	r.gameUUID = gameUUID
 	r.playerUUID = playerUUID
@@ -41,7 +43,7 @@ func (r *gameRepositoryStub) FindGameByID(
 	context.Context,
 	string,
 ) (domain.GameInstance, error) {
-	return domain.GameInstance{}, nil
+	return r.foundGame, r.findGameErr
 }
 
 func (r *gameRepositoryStub) InitGame(
@@ -65,19 +67,27 @@ func TestGameHandlerJoinGame(t *testing.T) {
 		gameUUID   string
 		playerUUID string
 		err        error
+		foundGame  domain.GameInstance
+		findErr    error
 		wantStatus int
 		wantCalls  int
 		wantBody   string
 	}{
 		{name: "success", gameUUID: gameUUID, playerUUID: playerUUID, wantStatus: http.StatusNoContent, wantCalls: 1},
-		{name: "unauthenticated", gameUUID: gameUUID, wantStatus: http.StatusUnauthorized, wantBody: "no user uuid found\n"},
+		{name: "unauthenticated", gameUUID: gameUUID, wantStatus: http.StatusUnauthorized, wantBody: "unauthorized\n"},
 		{name: "invalid UUID", gameUUID: "invalid", playerUUID: playerUUID, wantStatus: http.StatusBadRequest, wantBody: "invalid game UUID\n"},
 		{name: "cannot join", gameUUID: gameUUID, playerUUID: playerUUID, err: fmt.Errorf("repository: %w", domain.ErrCannotConnectToGame), wantStatus: http.StatusConflict, wantCalls: 1, wantBody: "cannot connect to game\n"},
+		{name: "game not found", gameUUID: gameUUID, playerUUID: playerUUID, err: domain.ErrCannotConnectToGame, findErr: fmt.Errorf("repository: %w", domain.ErrGameNotFound), wantStatus: http.StatusNotFound, wantCalls: 1, wantBody: domain.ErrGameNotFound.Error() + "\n"},
+		{name: "game against robot", gameUUID: gameUUID, playerUUID: playerUUID, err: domain.ErrCannotConnectToGame, foundGame: domain.GameInstance{Minimax: true}, wantStatus: http.StatusConflict, wantCalls: 1, wantBody: domain.ErrCantConnectGameWithRobot.Error() + "\n"},
+		{name: "game already started", gameUUID: gameUUID, playerUUID: playerUUID, err: domain.ErrCannotConnectToGame, foundGame: domain.GameInstance{State: domain.FirstPlayerTurn}, wantStatus: http.StatusConflict, wantCalls: 1, wantBody: domain.ErrGameAlreadyStarted.Error() + "\n"},
+		{name: "already first player", gameUUID: gameUUID, playerUUID: playerUUID, err: domain.ErrCannotConnectToGame, foundGame: domain.GameInstance{FirstPlayerUUID: playerUUID}, wantStatus: http.StatusConflict, wantCalls: 1, wantBody: domain.ErrAlreadyInGame.Error() + "\n"},
+		{name: "already second player", gameUUID: gameUUID, playerUUID: playerUUID, err: domain.ErrCannotConnectToGame, foundGame: domain.GameInstance{SecondPlayerUUID: playerUUID}, wantStatus: http.StatusConflict, wantCalls: 1, wantBody: domain.ErrAlreadyInGame.Error() + "\n"},
+		{name: "lookup failure", gameUUID: gameUUID, playerUUID: playerUUID, err: domain.ErrCannotConnectToGame, findErr: errors.New("private database details"), wantStatus: http.StatusInternalServerError, wantCalls: 1, wantBody: "internal server error\n"},
 		{name: "database error", gameUUID: gameUUID, playerUUID: playerUUID, err: errors.New("private database details"), wantStatus: http.StatusInternalServerError, wantCalls: 1, wantBody: "internal server error\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repository := &gameRepositoryStub{connectErr: tt.err}
+			repository := &gameRepositoryStub{connectErr: tt.err, foundGame: tt.foundGame, findGameErr: tt.findErr}
 			service := services.NewGameService(repository, zap.NewNop())
 			handler := NewGameHandler(service, zap.NewNop())
 			request := httptest.NewRequest(http.MethodPost, "/game/"+tt.gameUUID+"/join", nil)

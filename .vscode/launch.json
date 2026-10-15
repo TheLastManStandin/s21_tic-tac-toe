@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug TicTacToe API",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/src/cmd",
+            "cwd": "${workspaceFolder}/src",
+            "envFile": "${workspaceFolder}/src/.env"
+        }
+    ]
+}

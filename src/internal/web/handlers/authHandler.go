@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	"tickTackToe/internal/domain/services"
+	"tickTackToe/internal/web/httpresponse"
 
 	"go.uber.org/zap"
 )
@@ -23,14 +24,14 @@ func NewAuthHandler(service *services.UserService, logger *zap.Logger) *AuthHand
 func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	username, password, ok := r.BasicAuth()
 	if !ok {
-		w.WriteHeader(http.StatusUnauthorized)
+		httpresponse.WriteUnauthorized(w)
 		return
 	}
 	uuid, err := h.service.RegisterUser(r.Context(), username, password)
 
 	if err != nil {
-		http.Error(w, "Failed to register user: "+err.Error(), http.StatusInternalServerError)
 		h.logger.Error("Failed to register user", zap.Error(err))
+		httpresponse.WriteError(w, err)
 		return
 	}
 	_, _ = w.Write([]byte(uuid))
@@ -39,7 +40,7 @@ func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (h AuthHandler) Auth(w http.ResponseWriter, r *http.Request) {
 	username, password, ok := r.BasicAuth()
 	if !ok || strings.TrimSpace(username) == "" || password == "" {
-		writeUnauthorized(w)
+		httpresponse.WriteUnauthorized(w)
 		return
 	}
 
@@ -49,18 +50,10 @@ func (h AuthHandler) Auth(w http.ResponseWriter, r *http.Request) {
 		password,
 	)
 	if !authenticated {
-		writeUnauthorized(w)
+		httpresponse.WriteUnauthorized(w)
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	_, _ = w.Write([]byte(userUUID))
-}
-
-func writeUnauthorized(w http.ResponseWriter) {
-	w.Header().Set(
-		"WWW-Authenticate",
-		`Basic realm="tic-tac-toe", charset="UTF-8"`,
-	)
-	http.Error(w, "unauthorized", http.StatusUnauthorized)
 }

@@ -23,7 +23,7 @@ type GameRepository interface {
 		minimax bool,
 	) error
 
-	ConnectToGame(
+	JoinGame(
 		ctx context.Context,
 		gameUUID string,
 		playerUUID string,

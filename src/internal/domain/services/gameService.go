@@ -205,8 +205,29 @@ func (gs *GameService) InitGame(
 }
 
 func (gs *GameService) JoinGame(ctx context.Context, gameUUID string, playerUUID string) error {
-	if err := gs.Repo.ConnectToGame(ctx, gameUUID, playerUUID); err != nil {
+	err := gs.Repo.JoinGame(ctx, gameUUID, playerUUID)
+	if err == nil {
+		// return fmt.Errorf("join game: %w", err)
+		return nil
+	}
+	if !errors.Is(err, domain.ErrCannotConnectToGame) {
 		return fmt.Errorf("join game: %w", err)
 	}
-	return nil
+
+	game, err := gs.GetGame(ctx, gameUUID)
+	if err != nil {
+		return err
+	}
+
+	if game.Minimax {
+		return domain.ErrCantConnectGameWithRobot
+	}
+	if game.SecondPlayerUUID == playerUUID || game.FirstPlayerUUID == playerUUID {
+		return domain.ErrAlreadyInGame
+	}
+	if game.State != domain.WaitingForPlayers {
+		return domain.ErrGameAlreadyStarted
+	}
+
+	return domain.ErrCannotConnectToGame
 }

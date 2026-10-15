@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"tickTackToe/internal/web/httpresponse"
 	"tickTackToe/internal/web/requestcontext"
 )
 
@@ -28,11 +29,7 @@ func (a *BasicAuth) Wrap(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		login, password, ok := r.BasicAuth()
 		if !ok || strings.TrimSpace(login) == "" || password == "" {
-			w.Header().Set(
-				"WWW-Authenticate",
-				`Basic realm="tic-tac-toe", charset="UTF-8"`,
-			)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			httpresponse.WriteUnauthorized(w)
 			return
 		}
 
@@ -43,7 +40,7 @@ func (a *BasicAuth) Wrap(handler http.Handler) http.Handler {
 		)
 
 		if ok == false {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			httpresponse.WriteUnauthorized(w)
 			return
 		}
 

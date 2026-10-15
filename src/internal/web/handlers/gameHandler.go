@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/services"
+	"tickTackToe/internal/web/httpresponse"
 	"tickTackToe/internal/web/requestcontext"
 
 	"github.com/google/uuid"
@@ -30,7 +31,7 @@ func (h *GameHandler) MakeTurn(w http.ResponseWriter, r *http.Request) {
 	gameUUID := r.PathValue("UUID")
 	userUUID, ok := requestcontext.UserUUID(r.Context())
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		httpresponse.WriteUnauthorized(w)
 		return
 	}
 
@@ -45,29 +46,9 @@ func (h *GameHandler) MakeTurn(w http.ResponseWriter, r *http.Request) {
 
 	game, err := h.service.MakeTurn(r.Context(), gameUUID, userUUID, request.X, request.Y)
 	if err != nil {
-		status := http.StatusInternalServerError
-		message := "internal server error"
-
-		switch {
-		case errors.Is(err, domain.ErrGameAccessDenied):
-			status = http.StatusForbidden
-			message = err.Error()
-
-		case errors.Is(err, domain.ErrGameNotFound):
-			status = http.StatusNotFound
-			message = err.Error()
-
-		case errors.Is(err, domain.ErrNotYourTurn),
-			errors.Is(err, domain.ErrWaitingForPlayers),
-			errors.Is(err, domain.ErrCellOccupied):
-			status = http.StatusConflict
-			message = err.Error()
-		}
-
 		h.logger.Error("failed to make turn", zap.Error(err))
-		http.Error(w, message, status)
+		httpresponse.WriteError(w, err)
 		return
-
 	}
 	writeGameResponse(w, game)
 }
@@ -111,7 +92,7 @@ func (h *GameHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	uuid, ok := requestcontext.UserUUID(r.Context())
 	if !ok {
 		h.logger.Error("failed to find user uuid", zap.String("uuid", uuid))
-		http.Error(w, "no user uuid found", http.StatusUnauthorized)
+		httpresponse.WriteUnauthorized(w)
 		return
 	}
 
@@ -124,11 +105,7 @@ func (h *GameHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	game, err := h.service.InitGame(r.Context(), request.WithRobot, uuid)
 	if err != nil {
 		h.logger.Error("failed to initialize game", zap.Error(err))
-		http.Error(
-			w,
-			"failed to initialize game: "+err.Error(),
-			http.StatusInternalServerError,
-		)
+		httpresponse.WriteError(w, err)
 		return
 	}
 
@@ -162,7 +139,7 @@ func (h *GameHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 	playerUUID, ok := requestcontext.UserUUID(r.Context())
 	if !ok || playerUUID == "" {
 		h.logger.Error("failed to find user uuid", zap.String("uuid", playerUUID))
-		http.Error(w, "no user uuid found", http.StatusUnauthorized)
+		httpresponse.WriteUnauthorized(w)
 		return
 	}
 
@@ -174,13 +151,8 @@ func (h *GameHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.JoinGame(r.Context(), gameUUID, playerUUID); err != nil {
-		if errors.Is(err, domain.ErrCannotConnectToGame) {
-			http.Error(w, domain.ErrCannotConnectToGame.Error(), http.StatusConflict)
-			return
-		}
-
 		h.logger.Error("failed to join game", zap.String("game_uuid", gameUUID), zap.Error(err))
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		httpresponse.WriteError(w, err)
 		return
 	}
 

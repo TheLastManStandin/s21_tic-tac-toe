@@ -89,7 +89,7 @@ func (db *PostgresDatabase) FindGameByID(ctx context.Context, UUID string) (doma
 		return ret, err
 	}
 	if errors.Is(queryErr, pgx.ErrNoRows) {
-		return ret, DatabaseGameNotFount{}
+		return ret, domain.ErrGameNotFound
 	}
 
 	ret.UUID = UUID
@@ -138,7 +138,7 @@ func (db *PostgresDatabase) InitGame(
 	return BackoffRetry(ctx, maxAttempts, baseDelay, insertOperation)
 }
 
-func (db *PostgresDatabase) ConnectToGame(
+func (db *PostgresDatabase) JoinGame(
 	ctx context.Context,
 	gameUUID string,
 	playerUUID string,

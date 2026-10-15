@@ -105,6 +105,12 @@ func TestBasicAuthWrap(t *testing.T) {
 		if response.Code != http.StatusUnauthorized {
 			t.Fatalf("status = %d, want %d", response.Code, http.StatusUnauthorized)
 		}
+		if response.Header().Get("WWW-Authenticate") == "" {
+			t.Fatal("WWW-Authenticate header is missing")
+		}
+		if response.Body.String() != "unauthorized\n" {
+			t.Fatalf("body = %q, want unauthorized", response.Body.String())
+		}
 	})
 
 	t.Run("passes authenticated request with user UUID", func(t *testing.T) {
