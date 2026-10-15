@@ -25,14 +25,15 @@ func TestUserHandlerGetUserStatus(t *testing.T) {
 		err      error
 		status   int
 	}{
-		{name: "current user", url: "/user", player: current, wantUUID: current, status: http.StatusOK},
-		{name: "user by UUID", url: "/user?UUID=" + other, player: current, wantUUID: other, status: http.StatusOK},
-		{name: "missing user", url: "/user?UUID=" + other, player: current, wantUUID: other, err: fmt.Errorf("repository: %w", domain.ErrUserNotFound), status: http.StatusNotFound},
-		{name: "database failure", url: "/user", player: current, wantUUID: current, err: errors.New("private database details"), status: http.StatusInternalServerError},
-		{name: "unauthenticated", url: "/user", status: http.StatusUnauthorized},
-		{name: "invalid UUID", url: "/user?UUID=invalid", player: current, status: http.StatusBadRequest},
-		{name: "empty UUID", url: "/user?UUID=", player: current, status: http.StatusBadRequest},
-		{name: "duplicate UUID", url: "/user?UUID=" + current + "&UUID=" + other, player: current, status: http.StatusBadRequest},
+		{name: "current user", url: "/user/" + current, player: current, wantUUID: current, status: http.StatusOK},
+		{name: "user by UUID", url: "/user/" + other, player: current, wantUUID: other, status: http.StatusOK},
+		{name: "missing user", url: "/user/" + other, player: current, wantUUID: other, err: fmt.Errorf("repository: %w", domain.ErrUserNotFound), status: http.StatusNotFound},
+		{name: "database failure", url: "/user/" + current, player: current, wantUUID: current, err: errors.New("private database details"), status: http.StatusInternalServerError},
+		{name: "unauthenticated", url: "/user/" + other, status: http.StatusUnauthorized},
+		{name: "invalid UUID", url: "/user/invalid", player: current, status: http.StatusBadRequest},
+		{name: "missing path UUID", url: "/user/", player: current, status: http.StatusNotFound},
+		{name: "old query route", url: "/user?UUID=" + other, player: current, status: http.StatusNotFound},
+		{name: "query cannot override path", url: "/user/" + other + "?UUID=" + current, player: current, wantUUID: other, status: http.StatusOK},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &userRepositoryStub{foundUser: domain.UserInstance{UUID: tt.wantUUID, Username: "player", Password: "private password hash"}, findErr: tt.err}
@@ -42,7 +43,9 @@ func TestUserHandlerGetUserStatus(t *testing.T) {
 				request = request.WithContext(requestcontext.WithUserUUID(request.Context(), tt.player))
 			}
 			response := httptest.NewRecorder()
-			handler.GetUserStatus(response, request)
+			mux := http.NewServeMux()
+			mux.HandleFunc("GET /user/{UUID}", handler.GetUserStatus)
+			mux.ServeHTTP(response, request)
 			if response.Code != tt.status {
 				t.Fatalf("status = %d, want %d: %s", response.Code, tt.status, response.Body.String())
 			}

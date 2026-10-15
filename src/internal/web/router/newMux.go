@@ -17,11 +17,11 @@ func NewServeMux(
 
 	protectedMux.HandleFunc("POST /game/{UUID}", gameHandler.MakeTurn)
 	protectedMux.HandleFunc("POST /game", gameHandler.CreateGame)
-	// todo ↓
 	protectedMux.HandleFunc("POST /game/{UUID}/join", gameHandler.JoinGame)
+	// todo ↓
 	protectedMux.HandleFunc("GET /game", gameHandler.GetGames)
 	protectedMux.HandleFunc("GET /game/{UUID}", gameHandler.GetGameStatus)
-	protectedMux.HandleFunc("GET /user", userHandler.GetUserStatus)
+	protectedMux.HandleFunc("GET /user/{UUID}", userHandler.GetUserStatus)
 
 	mux.HandleFunc("/register", authHandler.Register)
 	mux.HandleFunc("GET /auth", authHandler.Auth)

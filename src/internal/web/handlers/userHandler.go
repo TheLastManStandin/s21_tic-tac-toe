@@ -26,16 +26,7 @@ func (h *UserHandler) GetUserStatus(w http.ResponseWriter, r *http.Request) {
 		httpresponse.WriteUnauthorized(w)
 		return
 	}
-	query := r.URL.Query()["UUID"]
-	userUUID := currentUserUUID
-	if query != nil {
-		if len(query) != 1 {
-			http.Error(w, "provide exactly one user UUID", http.StatusBadRequest)
-			return
-		}
-		userUUID = query[0]
-	}
-	parsedUUID, err := uuid.Parse(userUUID)
+	parsedUUID, err := uuid.Parse(r.PathValue("UUID"))
 	if err != nil {
 		http.Error(w, "invalid user UUID", http.StatusBadRequest)
 		return

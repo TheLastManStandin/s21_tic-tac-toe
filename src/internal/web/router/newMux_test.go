@@ -50,7 +50,7 @@ func TestReadRoutesRequireAuthentication(t *testing.T) {
 		handlers.NewUserHandler(users, logger),
 		middleware.NewBasicAuth(authenticatorStub{}),
 	)
-	for _, path := range []string{"/game", "/game/" + testGameUUID, "/user", "/user?UUID=" + testUserUUID} {
+	for _, path := range []string{"/game", "/game/" + testGameUUID, "/user/" + testUserUUID} {
 		for _, authenticated := range []bool{false, true} {
 			request := httptest.NewRequest(http.MethodGet, path, nil)
 			wantStatus := http.StatusUnauthorized
