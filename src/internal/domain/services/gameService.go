@@ -3,11 +3,13 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/repositorys"
 	minimax2 "tickTackToe/internal/domain/services/minimax"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
 
@@ -48,7 +50,10 @@ func (gs *GameService) MakeTurn(
 	domainGame, err := gs.GetGame(ctx, gameUUID)
 	if err != nil {
 		logger.Error("failed to get game", zap.Error(err))
-		return domain.GameInstance{}, errors.New("get game: " + err.Error())
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.GameInstance{}, domain.ErrGameNotFound
+		}
+		return domain.GameInstance{}, fmt.Errorf("failed to get game:%w", err)
 	}
 
 	// Узнаем можно ли пользователю делать ходы в этой игре и его номер(p1 / p2)
@@ -67,27 +72,33 @@ func (gs *GameService) MakeTurn(
 	if gameState.IsFinished() {
 		return domainGame, nil
 	}
-	if gameState == domain.WaitingForPlayers {
-		return domain.GameInstance{}, errors.New("waiting for players")
-	}
-	if gameState == domain.FirstPlayerTurn && playerNumber != 1 {
-		return domain.GameInstance{}, domain.ErrNotYourTurn
-	} else if gameState == domain.SecondPlayerTurn && playerNumber != 2 {
-		return domain.GameInstance{}, domain.ErrNotYourTurn
-	}
 
 	// Проверка если клетка занята
 	if domainGame.Table[x][y] != 0 {
-		return domainGame, errors.New("cell is already occupied")
+		return domainGame, domain.ErrCellOccupied
 	}
 
 	// Модификация игры
-	domainGame.Table[x][y] = 1
-	domainGame.State = gs.CalculateGameState(domainGame, domain.SecondPlayerTurn)
-	if !domainGame.State.IsFinished() {
-		domainGame = gs.MinimaxTurn(ctx, domainGame)
-		domainGame.State = gs.CalculateGameState(domainGame, domain.FirstPlayerTurn)
-		logger.Debug("minimax turn applied", zap.String("state", domainGame.State.String()))
+	if domainGame.Minimax {
+		domainGame.Table[x][y] = 1
+		domainGame.State = gs.CalculateGameState(domainGame, domain.SecondPlayerTurn)
+		if !domainGame.State.IsFinished() {
+			domainGame = gs.MinimaxTurn(ctx, domainGame)
+			domainGame.State = gs.CalculateGameState(domainGame, domain.FirstPlayerTurn)
+			logger.Debug("minimax turn applied", zap.String("state", domainGame.State.String()))
+		}
+	} else {
+		if gameState == domain.WaitingForPlayers {
+			return domain.GameInstance{}, domain.ErrWaitingForPlayers
+		}
+		if gameState == domain.FirstPlayerTurn && playerNumber != 1 {
+			return domain.GameInstance{}, domain.ErrNotYourTurn
+		} else if gameState == domain.SecondPlayerTurn && playerNumber != 2 {
+			return domain.GameInstance{}, domain.ErrNotYourTurn
+		}
+
+		domainGame.Table[x][y] = playerNumber
+		domainGame.State = gs.CalculateGameState(domainGame, domain.SecondPlayerTurn)
 	}
 
 	// Сохранение игры

@@ -44,7 +44,28 @@ func (h *GameHandler) MakeTurn(w http.ResponseWriter, r *http.Request) {
 
 	game, err := h.service.MakeTurn(r.Context(), gameUUID, userUUID, request.X, request.Y)
 	if err != nil {
-		http.Error(w, "failed to make turn: "+err.Error(), http.StatusInternalServerError)
+		status := http.StatusInternalServerError
+		message := "internal server error"
+
+		switch {
+		case errors.Is(err, domain.ErrGameAccessDenied):
+			status = http.StatusForbidden
+			message = err.Error()
+
+		case errors.Is(err, domain.ErrGameNotFound):
+			status = http.StatusNotFound
+			message = err.Error()
+
+		case errors.Is(err, domain.ErrNotYourTurn),
+			errors.Is(err, domain.ErrWaitingForPlayers),
+			errors.Is(err, domain.ErrCellOccupied):
+			status = http.StatusConflict
+			message = err.Error()
+		}
+
+		h.logger.Error("failed to make turn", zap.Error(err))
+		http.Error(w, message, status)
+		return
 	}
 	writeGameResponse(w, game)
 }
