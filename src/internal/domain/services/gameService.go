@@ -51,7 +51,7 @@ func (gs *GameService) MakeTurn(
 		return domain.GameInstance{}, errors.New("get game: " + err.Error())
 	}
 
-	if domainGame.FirstPlayerUUID != userUUID || domainGame.SecondPlayerUUID != userUUID {
+	if domainGame.FirstPlayerUUID != userUUID && domainGame.SecondPlayerUUID != userUUID {
 		return domain.GameInstance{}, domain.ErrGameAccessDenied
 	}
 
