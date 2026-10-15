@@ -23,6 +23,7 @@ func NewBasicAuth(authenticator UserAuthenticator) *BasicAuth {
 	return &BasicAuth{authenticator: authenticator}
 }
 
+// todo переписать как нормальная мидлваря
 func (a *BasicAuth) Wrap(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		login, password, ok := r.BasicAuth()

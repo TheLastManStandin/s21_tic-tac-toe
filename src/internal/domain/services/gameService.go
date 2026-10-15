@@ -44,20 +44,39 @@ func (gs *GameService) MakeTurn(
 	)
 	logger.Info("making turn")
 
-	// Проверка статуса игры (Получение игры)
+	// Получение игры
 	domainGame, err := gs.GetGame(ctx, gameUUID)
 	if err != nil {
 		logger.Error("failed to get game", zap.Error(err))
 		return domain.GameInstance{}, errors.New("get game: " + err.Error())
 	}
 
-	if domainGame.FirstPlayerUUID != userUUID && domainGame.SecondPlayerUUID != userUUID {
+	// Узнаем можно ли пользователю делать ходы в этой игре и его номер(p1 / p2)
+	var playerNumber int = 0
+	if domainGame.FirstPlayerUUID == userUUID {
+		playerNumber = 1
+	} else if domainGame.SecondPlayerUUID == userUUID {
+		playerNumber = 2
+	}
+	if playerNumber == 0 {
 		return domain.GameInstance{}, domain.ErrGameAccessDenied
 	}
 
-	if domainGame.State.IsFinished() {
+	// Проверка статуса игры
+	gameState := domainGame.State
+	if gameState.IsFinished() {
 		return domainGame, nil
 	}
+	if gameState == domain.WaitingForPlayers {
+		return domain.GameInstance{}, errors.New("waiting for players")
+	}
+	if gameState == domain.FirstPlayerTurn && playerNumber != 1 {
+		return domain.GameInstance{}, domain.ErrNotYourTurn
+	} else if gameState == domain.SecondPlayerTurn && playerNumber != 2 {
+		return domain.GameInstance{}, domain.ErrNotYourTurn
+	}
+
+	// Проверка если клетка занята
 	if domainGame.Table[x][y] != 0 {
 		return domainGame, errors.New("cell is already occupied")
 	}
