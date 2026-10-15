@@ -19,7 +19,7 @@ func NewServeMux(
 	// todo ↓
 	protectedMux.HandleFunc("POST /game/{UUID}/join", gameHandler.JoinGame)
 	protectedMux.HandleFunc("GET /game", gameHandler.GetGames)
-	//protectedMux.HandleFunc("GET /game/{UUID}", gameHandler.GetGameStatus)
+	protectedMux.HandleFunc("GET /game/{UUID}", gameHandler.GetGameStatus)
 	//protectedMux.HandleFunc("GET /user", userHandler.GetUserStatus)
 
 	mux.HandleFunc("/register", authHandler.Register)

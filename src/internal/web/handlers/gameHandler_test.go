@@ -26,6 +26,7 @@ type gameRepositoryStub struct {
 	connectErr     error
 	foundGame      domain.GameInstance
 	findGameErr    error
+	findGameCalls  int
 	availableGames []domain.GameInstance
 	listGamesErr   error
 	listGamesCalls int
@@ -49,9 +50,11 @@ func (r *gameRepositoryStub) SaveGame(context.Context, domain.GameInstance) erro
 }
 
 func (r *gameRepositoryStub) FindGameByID(
-	context.Context,
-	string,
+	_ context.Context,
+	gameUUID string,
 ) (domain.GameInstance, error) {
+	r.findGameCalls++
+	r.gameUUID = gameUUID
 	return r.foundGame, r.findGameErr
 }
 

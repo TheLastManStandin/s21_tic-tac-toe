@@ -7,6 +7,7 @@ import (
 	"tickTackToe/internal/web/httpresponse"
 	"tickTackToe/internal/web/requestcontext"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -29,6 +30,29 @@ func (h *GameHandler) GetGames(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		h.logger.Error("failed to write games response", zap.Error(err))
+	}
+}
+
+func (h *GameHandler) GetGameStatus(w http.ResponseWriter, r *http.Request) {
+	playerUUID, ok := requestcontext.UserUUID(r.Context())
+	if !ok || playerUUID == "" {
+		httpresponse.WriteUnauthorized(w)
+		return
+	}
+	gameUUID, err := uuid.Parse(r.PathValue("UUID"))
+	if err != nil {
+		http.Error(w, "invalid game UUID", http.StatusBadRequest)
+		return
+	}
+	game, err := h.service.GetGameStatus(r.Context(), gameUUID.String(), playerUUID)
+	if err != nil {
+		h.logger.Info("failed to get game status", zap.Error(err))
+		httpresponse.WriteError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(gameDetailsResponse(game)); err != nil {
+		h.logger.Error("failed to write game status", zap.Error(err))
 	}
 }
 
