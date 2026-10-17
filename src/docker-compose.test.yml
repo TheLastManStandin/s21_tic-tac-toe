@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: tictactoe_e2e
+      POSTGRES_USER: e2e
+      POSTGRES_PASSWORD: e2e
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U e2e -d tictactoe_e2e"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - test_data:/var/lib/postgresql
+
+  app:
+    build:
+      context: .
+    environment:
+      DATABASE_CONNECTION_STRING: postgres://e2e:e2e@db:5432/tictactoe_e2e?sslmode=disable
+      SERVER_ADDRESS: :5005
+    depends_on:
+      db:
+        condition: service_healthy
+
+  tests:
+    build:
+      context: .
+      target: build
+    environment:
+      E2E_BASE_URL: http://app:5005
+    depends_on:
+      app:
+        condition: service_started
+    # Wait here, so Go tests contain only API requests and assertions.
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        echo "Waiting for the test backend..."
+        for attempt in $$(seq 1 60); do
+          status="$$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 2 "$$E2E_BASE_URL/auth" || true)"
+          if [ "$$status" = "401" ]; then
+            exec go test -v -count=1 -timeout=2m ./tests
+          fi
+          sleep 1
+        done
+        echo "Test backend did not become ready" >&2
+        exit 1
+
+volumes:
+  test_data:

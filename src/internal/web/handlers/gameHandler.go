@@ -29,6 +29,10 @@ func NewGameHandler(service *services.GameService, logger *zap.Logger) *GameHand
 
 func (h *GameHandler) MakeTurn(w http.ResponseWriter, r *http.Request) {
 	gameUUID := r.PathValue("UUID")
+	err := uuid.Validate(gameUUID)
+	if err != nil {
+		http.Error(w, "invalid game uuid", http.StatusBadRequest)
+	}
 	userUUID, ok := requestcontext.UserUUID(r.Context())
 	if !ok {
 		httpresponse.WriteUnauthorized(w)

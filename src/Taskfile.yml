@@ -1,0 +1,29 @@
+version: '3'
+
+dir: '{{.TASKFILE_DIR}}'
+
+tasks:
+  up:
+    desc: Собрать и запустить бэкенд и PostgreSQL в фоне
+    cmds:
+      - docker compose up --build --detach --wait
+
+  down:
+    desc: Остановить систему, сохранив данные PostgreSQL
+    cmds:
+      - docker compose down
+
+  logs:
+    desc: Показать логи бэкенда и PostgreSQL
+    cmds:
+      - docker compose logs --follow
+
+  e2e:
+    desc: Запустить HTTP-тесты в отдельной системе и удалить тестовые данные
+    vars:
+      E2E_PROJECT:
+        sh: date +ap4-e2e-%s%N
+      E2E_COMPOSE: docker compose --project-name {{.E2E_PROJECT}} --file docker-compose.test.yml
+    cmds:
+      - defer: '{{.E2E_COMPOSE}} down --volumes --remove-orphans'
+      - '{{.E2E_COMPOSE}} up --build --abort-on-container-exit --exit-code-from tests --attach tests'

@@ -2,60 +2,47 @@ package tests_test
 
 import (
 	"bytes"
-	"context"
+	"crypto/rand"
 	"encoding/json"
-	"fmt"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
-	"tickTackToe/internal/domain/services"
 	"time"
-
-	"tickTackToe/internal/datasource"
-	"tickTackToe/internal/domain"
-	"tickTackToe/internal/domain/repositorys"
-	"tickTackToe/internal/migrations"
-	"tickTackToe/internal/web/handlers"
-	"tickTackToe/internal/web/middleware"
-	"tickTackToe/internal/web/router"
-
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/joho/godotenv"
-	"go.uber.org/fx"
-	"go.uber.org/zap"
 )
 
 func TestGameAgainstMinimax(t *testing.T) {
 	tests := []struct {
 		name      string
-		gameUUID  string
 		moves     [][2]int
 		wantState string
 	}{
 		{
 			name:      "minimax wins",
-			gameUUID:  "00000000-0000-0000-0000-000000000001",
 			moves:     [][2]int{{0, 0}, {0, 1}, {1, 0}},
-			wantState: domain.SecondPlayerWon.String(),
+			wantState: "second_player_won",
 		},
 		{
 			name:      "draw",
-			gameUUID:  "00000000-0000-0000-0000-000000000002",
 			moves:     [][2]int{{0, 0}, {0, 1}, {2, 0}, {1, 2}, {2, 2}},
-			wantState: domain.Draw.String(),
+			wantState: "draw",
 		},
 	}
 
-	gameUUIDs := make([]string, 0, len(tests))
-	for _, tt := range tests {
-		gameUUIDs = append(gameUUIDs, tt.gameUUID)
-	}
-
-	server, repository := startTestApplication(t, gameUUIDs)
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			api := newAPIClient(t)
+
+			// Prepare the game using the public API.
+			api.request(t, http.MethodPost, "/register", nil)
+			gameUUID := strings.TrimSpace(string(api.request(
+				t, http.MethodPost, "/game", map[string]bool{"WithRobot": true},
+			)))
+			if gameUUID == "" {
+				t.Fatal("create game returned an empty UUID")
+			}
+
 			var game gameResponse
 			for turn, move := range tt.moves {
 				x, y := move[0], move[1]
@@ -64,7 +51,7 @@ func TestGameAgainstMinimax(t *testing.T) {
 				}
 
 				previousTable := game.Table
-				game = makeTurn(t, server.Client(), server.URL, tt.gameUUID, x, y)
+				game = api.game(t, http.MethodPost, gameUUID, turnRequest{X: x, Y: y})
 				if game.Table[x][y] != 1 {
 					t.Fatalf("player turn was not applied at (%d, %d): table = %v", x, y, game.Table)
 				}
@@ -79,150 +66,269 @@ func TestGameAgainstMinimax(t *testing.T) {
 				t.Fatalf("final state = %q, want %q; table = %v", game.State, tt.wantState, game.Table)
 			}
 
-			assertGameSaved(t, repository, tt.gameUUID, game)
+			// A separate HTTP request must return the saved game.
+			savedGame := api.game(t, http.MethodGet, gameUUID, nil)
+			if savedGame != game {
+				t.Fatalf("saved game = %+v, last turn response = %+v", savedGame, game)
+			}
 
-			finishedGame := makeTurn(t, server.Client(), server.URL, tt.gameUUID, 0, 0)
+			// Further moves must not change a finished game.
+			finishedGame := api.game(t, http.MethodPost, gameUUID, turnRequest{X: 0, Y: 0})
 			if finishedGame != game {
-				t.Fatalf(
-					"finished game changed after another turn: before = %+v, after = %+v",
-					game,
-					finishedGame,
-				)
+				t.Fatalf("finished game changed: before = %+v, after = %+v", game, finishedGame)
+			}
+			if savedGame := api.game(t, http.MethodGet, gameUUID, nil); savedGame != game {
+				t.Fatalf("saved finished game changed: before = %+v, after = %+v", game, savedGame)
 			}
 		})
 	}
 }
 
-func startTestApplication(
-	t *testing.T,
-	gameUUIDs []string,
-) (*httptest.Server, repositorys.GameRepository) {
-	t.Helper()
-	const (
-		testUsername = "e2e-player"
-		testPassword = "e2e-password"
-	)
-
-	if os.Getenv("DATABASE_CONNECTION_STRING") == "" {
-		_ = godotenv.Load("../.env")
+func TestGameCreation(t *testing.T) {
+	api := newAPIClient(t)
+	userUUID := api.register(t)
+	for _, withRobot := range []bool{false, true} {
+		name := "multiplayer"
+		if withRobot {
+			name = "minimax"
+		}
+		t.Run(name, func(t *testing.T) {
+			id := api.createGame(t, withRobot)
+			game := api.gameDetails(t, id)
+			if game.UUID != id || game.FirstPlayerUUID != userUUID || game.SecondPlayerUUID != "" || game.Minimax != withRobot || game.Table != ([3][3]int{}) {
+				t.Fatalf("unexpected new game: %+v", game)
+			}
+			if !withRobot && game.State != "waiting_for_players" {
+				t.Fatalf("new multiplayer game state = %q", game.State)
+			}
+		})
 	}
-	connectionString := os.Getenv("DATABASE_CONNECTION_STRING")
-	if connectionString == "" {
-		t.Skip("PostgreSQL e2e tests require DATABASE_CONNECTION_STRING")
+	for _, tt := range []struct {
+		name string
+		body any
+	}{
+		{"missing field", `{}`},
+		{"null field", `{"WithRobot":null}`},
+		{"string instead of bool", `{"WithRobot":"true"}`},
+		{"unknown field", `{"WithRobot":true,"other":false}`},
+		{"malformed JSON", `{"WithRobot":`},
+		{"multiple objects", `{"WithRobot":true}{"WithRobot":false}`},
+		{"empty body", nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			api.request(t, http.MethodPost, "/game", tt.body, http.StatusBadRequest)
+		})
 	}
+}
 
-	connectionContext, cancelConnection := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancelConnection()
+func TestAvailableGamesAndJoining(t *testing.T) {
+	owner, guest, outsider := newAPIClient(t), newAPIClient(t), newAPIClient(t)
+	ownerUUID, guestUUID := owner.register(t), guest.register(t)
+	outsider.register(t)
+	waiting := owner.createGame(t, false)
+	robot := owner.createGame(t, true)
+	guestOwn := guest.createGame(t, false)
 
-	database, err := pgxpool.New(connectionContext, connectionString)
-	if err != nil {
-		t.Skipf("PostgreSQL is not available: %v", err)
-	}
-	if err := database.Ping(connectionContext); err != nil {
-		database.Close()
-		t.Skipf("PostgreSQL is not available: %v", err)
-	}
-
-	if err := migrations.Up(); err != nil {
-		database.Close()
-		t.Fatalf("apply database migrations: %v", err)
-	}
-
-	deleteTestGames := func(ctx context.Context) {
-		for _, gameUUID := range gameUUIDs {
-			if _, err := database.Exec(ctx, "DELETE FROM games WHERE uuid = $1", gameUUID); err != nil {
-				t.Errorf("delete test game %s: %v", gameUUID, err)
+	t.Run("list shows joinable games", func(t *testing.T) {
+		games := guest.availableGames(t)
+		if !containsGame(games, waiting) {
+			t.Fatal("available game missing from list")
+		}
+		if containsGame(games, robot) || containsGame(games, guestOwn) {
+			t.Fatal("list contains robot game or own game")
+		}
+		for _, game := range games {
+			if game.Minimax || game.State != "waiting_for_players" || game.SecondPlayerUUID != "" || game.FirstPlayerUUID == "" || game.FirstPlayerUUID == guestUUID {
+				t.Fatalf("game is not joinable: %+v", game)
 			}
 		}
-	}
-	deleteTestGames(connectionContext)
-	if _, err := database.Exec(
-		connectionContext,
-		"DELETE FROM client WHERE name = $1",
-		testUsername,
-	); err != nil {
-		database.Close()
-		t.Fatalf("delete test user: %v", err)
-	}
-
-	var mux *http.ServeMux
-	var repository repositorys.GameRepository
-	var userService *services.UserService
-	application := fx.New(
-		fx.NopLogger,
-		fx.Provide(
-			zap.NewNop,
-			router.NewServeMux,
-			handlers.NewGameHandler,
-			handlers.NewAuthHandler,
-			handlers.NewUserHandler,
-			services.NewGameService,
-			services.NewUserService,
-			middleware.NewBasicAuth,
-			func(service *services.UserService) middleware.UserAuthenticator {
-				return service
-			},
-			fx.Annotate(
-				datasource.NewPostgresDatabase,
-				fx.As(new(repositorys.GameRepository)),
-				fx.As(new(repositorys.UserRepository)),
-			),
-		),
-		fx.Populate(&mux, &repository, &userService),
-	)
-
-	startContext, cancelStart := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancelStart()
-	if err := application.Start(startContext); err != nil {
-		database.Close()
-		t.Fatalf("start test application: %v", err)
-	}
-
-	userUUID, err := userService.RegisterUser(
-		context.Background(),
-		testUsername,
-		testPassword,
-	)
-	if err != nil {
-		_ = application.Stop(context.Background())
-		database.Close()
-		t.Fatalf("register test user: %v", err)
-	}
-	for _, gameUUID := range gameUUIDs {
-		if err := repository.InitGame(
-			context.Background(),
-			gameUUID,
-			userUUID,
-			true,
-		); err != nil {
-			_ = application.Stop(context.Background())
-			database.Close()
-			t.Fatalf("initialize test game %s: %v", gameUUID, err)
+		if containsGame(owner.availableGames(t), waiting) {
+			t.Fatal("creator sees own game in available list")
 		}
-	}
-
-	server := httptest.NewServer(mux)
-	t.Cleanup(func() {
-		server.Close()
-
-		stopContext, cancelStop := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancelStop()
-		if err := application.Stop(stopContext); err != nil {
-			t.Errorf("stop test application: %v", err)
-		}
-
-		deleteTestGames(stopContext)
-		if _, err := database.Exec(
-			stopContext,
-			"DELETE FROM client WHERE name = $1",
-			testUsername,
-		); err != nil {
-			t.Errorf("delete test user: %v", err)
-		}
-		database.Close()
 	})
+	t.Run("owner cannot join again", func(t *testing.T) {
+		owner.request(t, http.MethodPost, "/game/"+waiting+"/join", nil, http.StatusConflict)
+	})
+	t.Run("cannot join minimax game", func(t *testing.T) {
+		guest.request(t, http.MethodPost, "/game/"+robot+"/join", nil, http.StatusConflict)
+	})
+	guest.request(t, http.MethodPost, "/game/"+waiting+"/join", nil)
+	joined := guest.gameDetails(t, waiting)
+	if joined.FirstPlayerUUID != ownerUUID || joined.SecondPlayerUUID != guestUUID || joined.State != "first_player_turn" {
+		t.Fatalf("unexpected joined game: %+v", joined)
+	}
+	if got := owner.gameDetails(t, waiting); got != joined {
+		t.Fatal("players see different game states")
+	}
+	if containsGame(outsider.availableGames(t), waiting) {
+		t.Fatal("started game is still available")
+	}
+	t.Run("cannot join twice", func(t *testing.T) {
+		guest.request(t, http.MethodPost, "/game/"+waiting+"/join", nil, http.StatusConflict)
+	})
+	t.Run("third player cannot join", func(t *testing.T) {
+		outsider.request(t, http.MethodPost, "/game/"+waiting+"/join", nil, http.StatusConflict)
+	})
+	t.Run("missing game", func(t *testing.T) {
+		guest.request(t, http.MethodPost, "/game/"+missingUUID+"/join", nil, http.StatusNotFound)
+	})
+	t.Run("invalid game UUID", func(t *testing.T) {
+		guest.request(t, http.MethodPost, "/game/invalid/join", nil, http.StatusBadRequest)
+	})
+	if got := owner.gameDetails(t, waiting); got != joined {
+		t.Fatal("rejected joins changed game state")
+	}
+}
 
-	return server, repository
+func TestGameAccessAndInvalidTurns(t *testing.T) {
+	first, second, outsider := newAPIClient(t), newAPIClient(t), newAPIClient(t)
+	first.register(t)
+	second.register(t)
+	outsider.register(t)
+	id := first.createGame(t, false)
+	t.Run("cannot move before opponent joins", func(t *testing.T) {
+		first.request(t, http.MethodPost, "/game/"+id, turnRequest{X: 0, Y: 0}, http.StatusConflict)
+	})
+	second.request(t, http.MethodPost, "/game/"+id+"/join", nil)
+	before := first.gameDetails(t, id)
+	for _, tt := range []struct {
+		name, method, path string
+		api                apiClient
+		body               any
+		status             int
+	}{
+		{"outsider cannot read", http.MethodGet, "/game/" + id, outsider, nil, http.StatusForbidden},
+		{"outsider cannot move", http.MethodPost, "/game/" + id, outsider, turnRequest{X: 0, Y: 0}, http.StatusForbidden},
+		{"not second player's turn", http.MethodPost, "/game/" + id, second, turnRequest{X: 0, Y: 0}, http.StatusConflict},
+		{"negative X", http.MethodPost, "/game/" + id, first, turnRequest{X: -1, Y: 0}, http.StatusBadRequest},
+		{"large Y", http.MethodPost, "/game/" + id, first, turnRequest{X: 0, Y: 3}, http.StatusBadRequest},
+		{"wrong coordinate type", http.MethodPost, "/game/" + id, first, `{"X":"0","Y":0}`, http.StatusBadRequest},
+		{"malformed turn", http.MethodPost, "/game/" + id, first, `{"X":`, http.StatusBadRequest},
+		{"unknown turn field", http.MethodPost, "/game/" + id, first, `{"X":0,"Y":0,"extra":1}`, http.StatusBadRequest},
+		{"multiple turn objects", http.MethodPost, "/game/" + id, first, `{"X":0,"Y":0}{"X":1,"Y":1}`, http.StatusBadRequest},
+		{"empty turn", http.MethodPost, "/game/" + id, first, nil, http.StatusBadRequest},
+		{"read missing game", http.MethodGet, "/game/" + missingUUID, first, nil, http.StatusNotFound},
+		{"move in missing game", http.MethodPost, "/game/" + missingUUID, first, turnRequest{X: 0, Y: 0}, http.StatusNotFound},
+		{"read invalid UUID", http.MethodGet, "/game/invalid", first, nil, http.StatusBadRequest},
+		{"move with invalid UUID", http.MethodPost, "/game/invalid", first, turnRequest{X: 0, Y: 0}, http.StatusBadRequest},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.api.request(t, tt.method, tt.path, tt.body, tt.status)
+			if got := first.gameDetails(t, id); got != before {
+				t.Fatal("rejected request changed game")
+			}
+		})
+	}
+	first.game(t, http.MethodPost, id, turnRequest{X: 0, Y: 0})
+	before = first.gameDetails(t, id)
+	t.Run("occupied cell", func(t *testing.T) {
+		second.request(t, http.MethodPost, "/game/"+id, turnRequest{X: 0, Y: 0}, http.StatusConflict)
+		if got := first.gameDetails(t, id); got != before {
+			t.Fatal("occupied-cell request changed game")
+		}
+	})
+}
+
+func TestMultiplayerGame(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		moves     [][2]int
+		wantState string
+	}{
+		{"first player wins", [][2]int{{0, 0}, {1, 0}, {0, 1}, {1, 1}, {0, 2}}, "first_player_won"},
+		{"second player wins", [][2]int{{0, 0}, {1, 0}, {2, 0}, {1, 1}, {2, 2}, {1, 2}}, "second_player_won"},
+		{"draw", [][2]int{{0, 0}, {1, 1}, {0, 2}, {0, 1}, {2, 1}, {1, 2}, {1, 0}, {2, 0}, {2, 2}}, "draw"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			players := [2]apiClient{newAPIClient(t), newAPIClient(t)}
+			players[0].register(t)
+			players[1].register(t)
+			id := players[0].createGame(t, false)
+			players[1].request(t, http.MethodPost, "/game/"+id+"/join", nil)
+			var wantTable [3][3]int
+			var game gameResponse
+			for turn, move := range tt.moves {
+				player := turn % 2
+				game = players[player].game(t, http.MethodPost, id, turnRequest{X: move[0], Y: move[1]})
+				wantTable[move[0]][move[1]] = player + 1
+				if game.Table != wantTable {
+					t.Fatalf("turn %d: table = %v, want %v (no automatic bot move)", turn+1, game.Table, wantTable)
+				}
+				wantState := "second_player_turn"
+				if player == 1 {
+					wantState = "first_player_turn"
+				}
+				if turn == len(tt.moves)-1 {
+					wantState = tt.wantState
+				}
+				if game.State != wantState {
+					t.Fatalf("turn %d: state = %q, want %q", turn+1, game.State, wantState)
+				}
+			}
+			for _, player := range players {
+				if saved := player.game(t, http.MethodGet, id, nil); saved != game {
+					t.Fatal("saved game differs from final turn")
+				}
+				if finished := player.game(t, http.MethodPost, id, turnRequest{X: 0, Y: 0}); finished != game {
+					t.Fatal("finished game changed after another move")
+				}
+			}
+		})
+	}
+}
+
+type gameDetailsResponse struct {
+	gameResponse
+	UUID             string `json:"uuid"`
+	Minimax          bool   `json:"minimax"`
+	FirstPlayerUUID  string `json:"firstPlayerUUID"`
+	SecondPlayerUUID string `json:"secondPlayerUUID"`
+}
+
+func (api apiClient) createGame(t *testing.T, withRobot bool) string {
+	t.Helper()
+	id := strings.TrimSpace(string(api.request(t, http.MethodPost, "/game", map[string]bool{"WithRobot": withRobot})))
+	assertUUID(t, id)
+	return id
+}
+
+func (api apiClient) gameDetails(t *testing.T, id string) gameDetailsResponse {
+	t.Helper()
+	data := api.request(t, http.MethodGet, "/game/"+id, nil)
+	var game gameDetailsResponse
+	if err := json.Unmarshal(data, &game); err != nil {
+		t.Fatal(err)
+	}
+	return game
+}
+
+func (api apiClient) availableGames(t *testing.T) []gameDetailsResponse {
+	t.Helper()
+	data := api.request(t, http.MethodGet, "/game", nil)
+	var games []gameDetailsResponse
+	if err := json.Unmarshal(data, &games); err != nil {
+		t.Fatal(err)
+	}
+	if games == nil {
+		t.Fatalf("game list must be a JSON array, got %s", data)
+	}
+	return games
+}
+
+func containsGame(games []gameDetailsResponse, id string) bool {
+	for _, game := range games {
+		if game.UUID == id {
+			return true
+		}
+	}
+	return false
+}
+
+type apiClient struct {
+	baseURL  string
+	client   *http.Client
+	username string
+	password string
 }
 
 type turnRequest struct {
@@ -235,49 +341,76 @@ type gameResponse struct {
 	State string    `json:"state"`
 }
 
-func makeTurn(
-	t *testing.T,
-	client *http.Client,
-	serverURL string,
-	gameUUID string,
-	x, y int,
-) gameResponse {
+func newAPIClient(t *testing.T) apiClient {
 	t.Helper()
+	baseURL := strings.TrimRight(os.Getenv("E2E_BASE_URL"), "/")
+	if baseURL == "" {
+		t.Skip("run task e2e from src to start the isolated test system")
+	}
+	client := &http.Client{
+		Timeout:       10 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+	t.Cleanup(client.CloseIdleConnections)
+	return apiClient{baseURL: baseURL, client: client, username: "e2e-" + rand.Text()[:16], password: "e2e-password"}
+}
 
-	body, err := json.Marshal(turnRequest{X: x, Y: y})
-	if err != nil {
-		t.Fatalf("encode turn request: %v", err)
+// request sends an authenticated HTTP request and checks its status.
+// A string body is sent unchanged, allowing malformed JSON tests.
+func (api apiClient) request(t *testing.T, method, path string, body any, expectedStatus ...int) []byte {
+	t.Helper()
+	wantStatus := http.StatusOK
+	if len(expectedStatus) > 0 {
+		wantStatus = expectedStatus[0]
 	}
 
-	request, err := http.NewRequestWithContext(
-		context.Background(),
-		http.MethodPost,
-		fmt.Sprintf("%s/game/%s", serverURL, gameUUID),
-		bytes.NewReader(body),
-	)
-	if err != nil {
-		t.Fatalf("create turn request: %v", err)
+	var payload []byte
+	if raw, ok := body.(string); ok {
+		payload = []byte(raw)
+	} else if body != nil {
+		var err error
+		payload, err = json.Marshal(body)
+		if err != nil {
+			t.Fatalf("encode request: %v", err)
+		}
 	}
-	request.Header.Set("Content-Type", "application/json")
-	request.SetBasicAuth("e2e-player", "e2e-password")
-
-	response, err := client.Do(request)
+	request, err := http.NewRequestWithContext(t.Context(), method, api.baseURL+path, bytes.NewReader(payload))
 	if err != nil {
-		t.Fatalf("make turn request: %v", err)
+		t.Fatalf("create request: %v", err)
+	}
+	if api.username != "" || api.password != "" {
+		request.SetBasicAuth(api.username, api.password)
+	}
+	if body != nil {
+		request.Header.Set("Content-Type", "application/json")
+	}
+
+	response, err := api.client.Do(request)
+	if err != nil {
+		t.Fatalf("%s %s: %v", method, path, err)
 	}
 	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		var errorResponse bytes.Buffer
-		_, _ = errorResponse.ReadFrom(response.Body)
-		t.Fatalf("make turn status = %d, body = %q", response.StatusCode, errorResponse.String())
+	data, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read %s %s response: %v", method, path, err)
 	}
+	t.Logf("%s %s -> %d", method, path, response.StatusCode)
+	if response.StatusCode != wantStatus {
+		t.Fatalf("%s %s: status = %d, want %d; body = %q", method, path, response.StatusCode, wantStatus, data)
+	}
+	if wantStatus == http.StatusUnauthorized && response.Header.Get("WWW-Authenticate") == "" {
+		t.Fatalf("%s %s: missing WWW-Authenticate header", method, path)
+	}
+	return data
+}
 
+func (api apiClient) game(t *testing.T, method, gameUUID string, body any) gameResponse {
+	t.Helper()
+	data := api.request(t, method, "/game/"+gameUUID, body)
 	var game gameResponse
-	if err := json.NewDecoder(response.Body).Decode(&game); err != nil {
-		t.Fatalf("decode turn response: %v", err)
+	if err := json.Unmarshal(data, &game); err != nil {
+		t.Fatalf("decode game response: %v; body = %q", err, data)
 	}
-
 	return game
 }
 
@@ -319,29 +452,9 @@ func assertValidTurn(t *testing.T, previous, current [3][3]int) {
 	}
 }
 
-func assertGameSaved(
-	t *testing.T,
-	repository repositorys.GameRepository,
-	gameUUID string,
-	want gameResponse,
-) {
-	t.Helper()
-
-	savedGame, err := repository.FindGameByID(context.Background(), gameUUID)
-	if err != nil {
-		t.Fatalf("load saved game: %v", err)
-	}
-	if savedGame.Table != want.Table {
-		t.Fatalf("saved table = %v, response table = %v", savedGame.Table, want.Table)
-	}
-	if savedGame.State.String() != want.State {
-		t.Fatalf("saved state = %q, response state = %q", savedGame.State.String(), want.State)
-	}
-}
-
 func gameFinished(state string) bool {
 	switch state {
-	case domain.FirstPlayerWon.String(), domain.SecondPlayerWon.String(), domain.Draw.String():
+	case "first_player_won", "second_player_won", "draw":
 		return true
 	default:
 		return false
