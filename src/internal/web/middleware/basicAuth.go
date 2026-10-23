@@ -25,27 +25,54 @@ func NewBasicAuth(authenticator UserAuthenticator) *BasicAuth {
 }
 
 // todo переписать как нормальная мидлваря
-func (a *BasicAuth) Wrap(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		login, password, ok := r.BasicAuth()
-		if !ok || strings.TrimSpace(login) == "" || password == "" {
-			httpresponse.WriteUnauthorized(w)
-			return
-		}
+// func (a *BasicAuth) Wrap(handler http.Handler) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		login, password, ok := r.BasicAuth()
+// 		if !ok || strings.TrimSpace(login) == "" || password == "" {
+// 			httpresponse.WriteUnauthorized(w)
+// 			return
+// 		}
 
-		uuid, ok := a.authenticator.AuthenticateUser(
-			r.Context(),
-			login,
-			password,
-		)
+// 		uuid, ok := a.authenticator.AuthenticateUser(
+// 			r.Context(),
+// 			login,
+// 			password,
+// 		)
 
-		if ok == false {
-			httpresponse.WriteUnauthorized(w)
-			return
-		}
+// 		if ok == false {
+// 			httpresponse.WriteUnauthorized(w)
+// 			return
+// 		}
 
-		ctx := requestcontext.WithUserUUID(r.Context(), uuid)
+// 		ctx := requestcontext.WithUserUUID(r.Context(), uuid)
 
-		handler.ServeHTTP(w, r.WithContext(ctx))
-	})
+// 		handler.ServeHTTP(w, r.WithContext(ctx))
+// 	})
+// }
+
+func BasicAuthMiddleware(ua UserAuthenticator) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			login, password, ok := r.BasicAuth()
+			if !ok || strings.TrimSpace(login) == "" || password == "" {
+				httpresponse.WriteUnauthorized(w)
+				return
+			}
+
+			uuid, ok := ua.AuthenticateUser(
+				r.Context(),
+				login,
+				password,
+			)
+
+			if ok == false {
+				httpresponse.WriteUnauthorized(w)
+				return
+			}
+
+			ctx := requestcontext.WithUserUUID(r.Context(), uuid)
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }

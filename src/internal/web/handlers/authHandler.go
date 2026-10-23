@@ -27,14 +27,14 @@ func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		httpresponse.WriteUnauthorized(w)
 		return
 	}
-	uuid, err := h.service.RegisterUser(r.Context(), username, password)
+	userUUID, err := h.service.RegisterUser(r.Context(), username, password)
 
 	if err != nil {
 		h.logger.Error("Failed to register user", zap.Error(err))
 		httpresponse.WriteError(w, err)
 		return
 	}
-	_, _ = w.Write([]byte(uuid))
+	_, _ = w.Write([]byte(userUUID))
 }
 
 func (h AuthHandler) Auth(w http.ResponseWriter, r *http.Request) {

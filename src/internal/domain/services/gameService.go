@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/repositorys"
-	minimax2 "tickTackToe/internal/domain/services/minimax"
+	"tickTackToe/internal/domain/services/minimax"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -26,9 +26,9 @@ func NewGameService(repo repositorys.GameRepository, logger *zap.Logger) *GameSe
 }
 
 func (gs *GameService) MinimaxTurn(ctx context.Context, game domain.GameInstance) domain.GameInstance {
-	internalGame := minimax2.GameFromDomain(game)
-	minimax2.Minimax(&internalGame, 2)
-	game = minimax2.GameToDomain(internalGame, game)
+	internalGame := minimax.GameFromDomain(game)
+	minimax.Minimax(&internalGame, 2)
+	game = minimax.GameToDomain(internalGame, game)
 
 	return game
 }

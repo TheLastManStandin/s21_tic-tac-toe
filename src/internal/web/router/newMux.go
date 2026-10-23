@@ -3,14 +3,13 @@ package router
 import (
 	"net/http"
 	"tickTackToe/internal/web/handlers"
-	"tickTackToe/internal/web/middleware"
 )
 
 func NewServeMux(
 	gameHandler *handlers.GameHandler,
 	authHandler *handlers.AuthHandler,
 	userHandler *handlers.UserHandler,
-	auth *middleware.BasicAuth,
+	// auth *middleware.BasicAuth,
 ) *http.ServeMux {
 	mux := http.NewServeMux()
 	protectedMux := http.NewServeMux()
@@ -25,7 +24,11 @@ func NewServeMux(
 	mux.HandleFunc("/register", authHandler.Register)
 	mux.HandleFunc("GET /auth", authHandler.Auth)
 
-	mux.Handle("/", auth.Wrap(protectedMux))
+	// mux.Handle("/", auth.Wrap(protectedMux))
 
 	return mux
+}
+
+func addMiddleware() {
+
 }
