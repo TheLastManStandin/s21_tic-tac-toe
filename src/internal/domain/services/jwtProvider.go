@@ -18,10 +18,19 @@ type claims struct {
 	TokenUse TokenUse `json:"token_use"`
 }
 
-type jwtProvider struct {
+type JwtProvider struct {
+	Key string
 }
 
-func (jp *jwtProvider) GenerateAccessToken(user domain.UserInstance) (string, error) {
+func NewJwtProvider() *JwtProvider {
+	return &JwtProvider{
+		Key: ,
+	}
+}
+
+func (jp *JwtProvider) 
+
+func (jp *JwtProvider) GenerateAccessToken(user domain.UserInstance) (string, error) {
 	userClaims := claims{
 		UserUUID: user.UUID,
 		Expires:  time.Now().Add(15 * time.Minute).Unix(),

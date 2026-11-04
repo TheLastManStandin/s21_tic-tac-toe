@@ -25,10 +25,17 @@ func NewServeMux(
 	mux.HandleFunc("GET /auth", authHandler.Auth)
 
 	// mux.Handle("/", auth.Wrap(protectedMux))
+	mux.Handle("/", addMiddleware(
+		protectedMux,
+		// middleware.BasicAuthMiddleware(auth),
+	))
 
 	return mux
 }
 
-func addMiddleware() {
-
+func addMiddleware(handler http.Handler, middlewares ...func(http.Handler) http.Handler) http.Handler {
+	for _, mv := range middlewares {
+		handler = mv(handler)
+	}
+	return handler
 }
