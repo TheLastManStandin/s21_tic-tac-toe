@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"tickTackToe/internal/domain"
+	"tickTackToe/internal/domain/minimax"
 	"tickTackToe/internal/domain/repositorys"
-	"tickTackToe/internal/domain/services/minimax"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

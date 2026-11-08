@@ -26,13 +26,15 @@ func Build() {
 			router.NewServeMux,
 
 			handlers.NewGameHandler,
-			services.NewGameService,
-
 			handlers.NewAuthHandler,
 			handlers.NewUserHandler,
-			services.NewUserService,
 
-			middleware.NewBasicAuth,
+			services.NewGameService,
+			services.NewUserService,
+			services.NewAuthService,
+
+			// middleware.NewBasicAuth,
+			services.NewJwtProvider,
 
 			fx.Annotate(
 				datasource.NewPostgresDatabase,

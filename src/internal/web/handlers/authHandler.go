@@ -1,8 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
+	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/services"
 	"tickTackToe/internal/web/httpresponse"
 
@@ -10,14 +14,20 @@ import (
 )
 
 type AuthHandler struct {
-	service *services.UserService
-	logger  *zap.Logger
+	userService *services.UserService
+	authService *services.AuthService
+	logger      *zap.Logger
 }
 
-func NewAuthHandler(service *services.UserService, logger *zap.Logger) *AuthHandler {
+func NewAuthHandler(
+	userService *services.UserService,
+	logger *zap.Logger,
+	authService *services.AuthService,
+) *AuthHandler {
 	return &AuthHandler{
-		service: service,
-		logger:  logger,
+		userService: userService,
+		authService: authService,
+		logger:      logger,
 	}
 }
 
@@ -27,7 +37,7 @@ func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		httpresponse.WriteUnauthorized(w)
 		return
 	}
-	userUUID, err := h.service.RegisterUser(r.Context(), username, password)
+	userUUID, err := h.userService.RegisterUser(r.Context(), username, password)
 
 	if err != nil {
 		h.logger.Error("Failed to register user", zap.Error(err))
@@ -38,22 +48,39 @@ func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h AuthHandler) Auth(w http.ResponseWriter, r *http.Request) {
-	username, password, ok := r.BasicAuth()
-	if !ok || strings.TrimSpace(username) == "" || password == "" {
-		httpresponse.WriteUnauthorized(w)
+	defer r.Body.Close()
+
+	var request domain.JwtRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&request); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		http.Error(w, "expected one JSON object", http.StatusBadRequest)
 		return
 	}
 
-	userUUID, authenticated := h.service.AuthenticateUser(
-		r.Context(),
-		username,
-		password,
-	)
-	if !authenticated {
-		httpresponse.WriteUnauthorized(w)
+	if strings.TrimSpace(request.Login) == "" || request.Password == "" {
+		http.Error(w, "login and password are required", http.StatusBadRequest)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = w.Write([]byte(userUUID))
+	response, err := h.authService.Authenticate(r.Context(), request)
+	if errors.Is(err, domain.ErrInvalidLoginPassword) {
+		httpresponse.WriteUnauthorized(w)
+		return
+	}
+	if err != nil {
+		h.logger.Error("authentication failed", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("failed to write auth response", zap.Error(err))
+	}
 }

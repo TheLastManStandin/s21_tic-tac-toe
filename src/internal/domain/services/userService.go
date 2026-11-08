@@ -23,7 +23,7 @@ func NewUserService(repo repositorys.UserRepository, logger *zap.Logger) *UserSe
 	}
 }
 
-func (us *UserService) AuthenticateUser(ctx context.Context, username string, password string) (string, bool) {
+func (us *UserService) ValidateUserPassword(ctx context.Context, username string, password string) (string, bool) {
 	user, err := us.Repo.GetUser(ctx, username)
 	if err != nil {
 		return "", false

@@ -13,3 +13,5 @@ var ErrCellOccupied = errors.New("cell is already occupied")
 var ErrCantConnectGameWithRobot = errors.New("game against minimax, you cant connect to it")
 var ErrGameAlreadyStarted = errors.New("game already started, you cant connect to it")
 var ErrAlreadyInGame = errors.New("bro you already in game, chill")
+
+var ErrInvalidLoginPassword = errors.New("User not found, invalid password or login")
