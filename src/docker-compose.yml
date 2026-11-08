@@ -7,7 +7,8 @@ services:
       db:
         condition: service_healthy
     environment:
-      # DATABASE_CONNECTION_STRING: postgres://postgres:postgres@db:5432/postgres?sslmode=disable
+      DATABASE_CONNECTION_STRING: postgres://postgres:postgres@db:5432/postgres?sslmode=disable
+      JWT_KEY: konsky_volos
       SERVER_ADDRESS: :5005
     ports:
       - "3000:5005"

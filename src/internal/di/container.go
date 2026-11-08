@@ -9,7 +9,6 @@ import (
 	"tickTackToe/internal/migrations"
 	"tickTackToe/internal/web"
 	"tickTackToe/internal/web/handlers"
-	"tickTackToe/internal/web/middleware"
 	"tickTackToe/internal/web/router"
 
 	"go.uber.org/fx"
@@ -41,10 +40,10 @@ func Build() {
 				fx.As(new(repositorys.GameRepository)),
 				fx.As(new(repositorys.UserRepository)),
 			),
-			fx.Annotate(
-				services.NewUserService,
-				fx.As(new(middleware.UserAuthenticator)),
-			),
+			// fx.Annotate(
+			// 	services.NewUserService,
+			// 	fx.As(new(middleware.UserAuthenticator)),
+			// ),
 		),
 		fx.Invoke(
 			migrations.Up,
