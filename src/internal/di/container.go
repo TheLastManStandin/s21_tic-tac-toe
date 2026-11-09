@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net/http"
 	"tickTackToe/internal/datasource"
+	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/repositorys"
 	"tickTackToe/internal/domain/services"
+	"tickTackToe/internal/domain/services/auth"
 	"tickTackToe/internal/migrations"
 	"tickTackToe/internal/web"
 	"tickTackToe/internal/web/handlers"
@@ -30,10 +32,15 @@ func Build() {
 
 			services.NewGameService,
 			services.NewUserService,
-			services.NewAuthService,
+
+			fx.Annotate(
+				// auth.NewBasicAuthService,
+				auth.NewJwtAuthService,
+				fx.As(new(handlers.AuthService)),
+			),
+			domain.NewJwtProvider,
 
 			// middleware.NewBasicAuth,
-			services.NewJwtProvider,
 
 			fx.Annotate(
 				datasource.NewPostgresDatabase,

@@ -9,7 +9,7 @@ func NewServeMux(
 	gameHandler *handlers.GameHandler,
 	authHandler *handlers.AuthHandler,
 	userHandler *handlers.UserHandler,
-	// auth *middleware.BasicAuth,
+	auth handlers.AuthService,
 ) *http.ServeMux {
 	mux := http.NewServeMux()
 	protectedMux := http.NewServeMux()
@@ -27,7 +27,7 @@ func NewServeMux(
 	// mux.Handle("/", auth.Wrap(protectedMux))
 	mux.Handle("/", addMiddleware(
 		protectedMux,
-		// middleware.BasicAuthMiddleware(auth),
+		// middleware.AuthMiddleware(auth),
 	))
 
 	return mux

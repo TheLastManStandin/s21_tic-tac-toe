@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/services"
-	"tickTackToe/internal/web/httpresponse"
-	"tickTackToe/internal/web/requestcontext"
+	"tickTackToe/internal/web/utils/httpresponse"
+	"tickTackToe/internal/web/utils/requestcontext"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"

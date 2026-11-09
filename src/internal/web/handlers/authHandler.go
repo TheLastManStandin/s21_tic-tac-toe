@@ -3,26 +3,28 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
-	"strings"
 	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/services"
-	"tickTackToe/internal/web/httpresponse"
+	"tickTackToe/internal/web/utils/httpresponse"
 
 	"go.uber.org/zap"
 )
 
 type AuthHandler struct {
 	userService *services.UserService
-	authService *services.AuthService
+	authService AuthService
 	logger      *zap.Logger
+}
+
+type AuthService interface {
+	Authenticate(r *http.Request) (any, error)
 }
 
 func NewAuthHandler(
 	userService *services.UserService,
 	logger *zap.Logger,
-	authService *services.AuthService,
+	authService AuthService,
 ) *AuthHandler {
 	return &AuthHandler{
 		userService: userService,
@@ -50,25 +52,7 @@ func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (h AuthHandler) Auth(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
-	var request domain.JwtRequest
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
-	if err := decoder.Decode(&request); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
-		return
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		http.Error(w, "expected one JSON object", http.StatusBadRequest)
-		return
-	}
-
-	if strings.TrimSpace(request.Login) == "" || request.Password == "" {
-		http.Error(w, "login and password are required", http.StatusBadRequest)
-		return
-	}
-
-	response, err := h.authService.Authenticate(r.Context(), request)
+	response, err := h.authService.Authenticate(r)
 	if errors.Is(err, domain.ErrInvalidLoginPassword) {
 		httpresponse.WriteUnauthorized(w)
 		return
