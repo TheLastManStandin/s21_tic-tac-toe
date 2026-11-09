@@ -1,5 +1,10 @@
 package domain
 
+import (
+	"context"
+	"net/http"
+)
+
 type GameInstance struct {
 	Table            [3][3]int
 	State            GameState
@@ -35,4 +40,9 @@ type JwtResponse struct {
 	Type         string `json:"type"`
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
+}
+
+type AuthService interface {
+	Login(r *http.Request) (any, error)
+	AuthenticateAccessToken(ctx context.Context, token string) (string, error)
 }

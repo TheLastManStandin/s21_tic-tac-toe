@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -21,7 +22,7 @@ func NewJwtAuthService(userService *services.UserService, jwtProvider *domain.Jw
 	}
 }
 
-func (s *JwtAuthService) Authenticate(r *http.Request) (any, error) {
+func (s *JwtAuthService) Login(r *http.Request) (any, error) {
 	var request domain.JwtRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -56,4 +57,17 @@ func (s *JwtAuthService) Authenticate(r *http.Request) (any, error) {
 		AccessToken:  acessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func (s *JwtAuthService) AuthenticateAccessToken(ctx context.Context, token string) (string, error) {
+	if token == "" {
+		return "", domain.ErrEmptyAccessToken
+	}
+
+	userUUID, err := s.jwtProvider.ValidateAccessToken(token)
+	if err != nil {
+		return "", err
+	}
+
+	return userUUID, nil
 }

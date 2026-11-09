@@ -13,18 +13,14 @@ import (
 
 type AuthHandler struct {
 	userService *services.UserService
-	authService AuthService
+	authService domain.AuthService
 	logger      *zap.Logger
-}
-
-type AuthService interface {
-	Authenticate(r *http.Request) (any, error)
 }
 
 func NewAuthHandler(
 	userService *services.UserService,
 	logger *zap.Logger,
-	authService AuthService,
+	authService domain.AuthService,
 ) *AuthHandler {
 	return &AuthHandler{
 		userService: userService,
@@ -52,7 +48,7 @@ func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (h AuthHandler) Auth(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
-	response, err := h.authService.Authenticate(r)
+	response, err := h.authService.Login(r)
 	if errors.Is(err, domain.ErrInvalidLoginPassword) {
 		httpresponse.WriteUnauthorized(w)
 		return

@@ -1,7 +1,5 @@
 package web
 
-import "net/http"
-
 type WebGame struct {
 	Table   [3][3]int
 	State   WebGameState
@@ -19,9 +17,3 @@ const (
 	SecondPlayerWon
 	Draw
 )
-
-type UserAuthenticator interface {
-	AuthenticateUser(
-		request *http.Request,
-	) (string, bool)
-}

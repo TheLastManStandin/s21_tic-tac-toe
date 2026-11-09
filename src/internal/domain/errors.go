@@ -16,3 +16,4 @@ var ErrAlreadyInGame = errors.New("bro you already in game, chill")
 
 var ErrInvalidLoginPassword = errors.New("User not found, invalid password or login")
 var ErrEmptyLoginPassword = errors.New("User not found, empty password or login")
+var ErrEmptyAccessToken = errors.New("empty access token")

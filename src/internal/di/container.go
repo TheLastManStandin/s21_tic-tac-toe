@@ -36,11 +36,9 @@ func Build() {
 			fx.Annotate(
 				// auth.NewBasicAuthService,
 				auth.NewJwtAuthService,
-				fx.As(new(handlers.AuthService)),
+				fx.As(new(domain.AuthService)),
 			),
 			domain.NewJwtProvider,
-
-			// middleware.NewBasicAuth,
 
 			fx.Annotate(
 				datasource.NewPostgresDatabase,

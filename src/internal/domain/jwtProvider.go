@@ -99,12 +99,18 @@ func (jp *JwtProvider) validateToken(
 	return userClaims, nil
 }
 
-func (jp *JwtProvider) ValidateAccessToken(token string) bool {
-	_, err := jp.validateToken(token, access)
-	return err == nil
+func (jp *JwtProvider) ValidateAccessToken(token string) (string, error) {
+	claims, err := jp.validateToken(token, access)
+	if err != nil {
+		return "", err
+	}
+	return claims.Subject, nil
 }
 
-func (jp *JwtProvider) ValidateRefreshToken(token string) bool {
-	_, err := jp.validateToken(token, refresh)
-	return err == nil
+func (jp *JwtProvider) ValidateRefreshToken(token string) (string, error) {
+	claims, err := jp.validateToken(token, refresh)
+	if err != nil {
+		return "", err
+	}
+	return claims.Subject, nil
 }
