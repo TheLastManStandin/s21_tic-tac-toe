@@ -42,7 +42,12 @@ type JwtResponse struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+type JwtRefreshRequest struct {
+	RefreshToken string `json:"refreshToken"`
+}
+
 type AuthService interface {
 	Login(r *http.Request) (any, error)
 	AuthenticateAccessToken(ctx context.Context, token string) (string, error)
+	Refresh(r *http.Request) (any, error)
 }

@@ -64,3 +64,23 @@ func (h AuthHandler) Auth(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("failed to write auth response", zap.Error(err))
 	}
 }
+
+func (h AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	response, err := h.authService.Refresh(r)
+	if errors.Is(err, domain.ErrInvalidRefreshToken) {
+		httpresponse.WriteUnauthorized(w)
+		return
+	}
+	if err != nil {
+		h.logger.Error("refresh failed", zap.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("failed to write refresh response", zap.Error(err))
+	}
+}

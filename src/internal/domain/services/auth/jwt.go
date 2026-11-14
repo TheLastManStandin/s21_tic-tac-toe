@@ -71,3 +71,40 @@ func (s *JwtAuthService) AuthenticateAccessToken(ctx context.Context, token stri
 
 	return userUUID, nil
 }
+
+func (s *JwtAuthService) Refresh(r *http.Request) (any, error) {
+	var request domain.JwtRefreshRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&request); err != nil {
+		return domain.JwtResponse{}, err
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return domain.JwtResponse{}, domain.ErrInvalidRefreshToken
+	}
+
+	if strings.TrimSpace(request.RefreshToken) == "" {
+		return domain.JwtResponse{}, domain.ErrInvalidRefreshToken
+	}
+
+	userUUID, err := s.jwtProvider.ValidateRefreshToken(request.RefreshToken)
+	if err != nil {
+		return domain.JwtResponse{}, err
+	}
+
+	acessToken, err := s.jwtProvider.GenerateAccessToken(userUUID)
+	if err != nil {
+		return domain.JwtResponse{}, err
+	}
+	refreshToken, err := s.jwtProvider.GenerateRefreshToken(userUUID)
+	if err != nil {
+		return domain.JwtResponse{}, err
+	}
+
+	return domain.JwtResponse{
+		Type:         "Bearer",
+		AccessToken:  acessToken,
+		RefreshToken: refreshToken,
+	}, nil
+}

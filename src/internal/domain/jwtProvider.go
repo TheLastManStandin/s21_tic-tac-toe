@@ -12,6 +12,11 @@ import (
 type TokenUse uint32
 
 const (
+	accessTokenTTL  = 1 * time.Minute
+	refreshTokenTTL = 15 * 24 * time.Hour
+)
+
+const (
 	access TokenUse = iota + 1
 	refresh
 )
@@ -37,7 +42,7 @@ func (jp *JwtProvider) GenerateAccessToken(userUUID string) (string, error) {
 	userClaims := claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userUUID,
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 		TokenUse: access,
@@ -51,7 +56,7 @@ func (jp *JwtProvider) GenerateRefreshToken(userUUID string) (string, error) {
 	userClaims := claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userUUID,
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * 24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(refreshTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 		TokenUse: refresh,
