@@ -26,6 +26,9 @@ func NewServeMux(
 	mux.HandleFunc("/register", authHandler.Register)
 	mux.HandleFunc("GET /auth", authHandler.Auth)
 	mux.HandleFunc("/refresh", authHandler.Refresh)
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	// mux.Handle("/", auth.Wrap(protectedMux))
 	mux.Handle("/", addMiddleware(

@@ -25,5 +25,8 @@ tasks:
         sh: date +ap4-e2e-%s%N
       E2E_COMPOSE: docker compose --project-name {{.E2E_PROJECT}} --file docker-compose.test.yml
     cmds:
+      - mkdir -p logs
       - defer: '{{.E2E_COMPOSE}} down --volumes --remove-orphans'
+      # Deferred commands run in reverse order: collect logs before removing containers.
+      - defer: '{{.E2E_COMPOSE}} logs --no-color --timestamps app > "logs/{{.E2E_PROJECT}}-app.log" 2>&1'
       - '{{.E2E_COMPOSE}} up --build --abort-on-container-exit --exit-code-from tests --attach tests'

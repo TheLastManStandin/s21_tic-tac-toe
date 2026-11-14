@@ -3,3 +3,4 @@ task.md
 go.work
 src/bin/*
 src/.env
+src/logs/

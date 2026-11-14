@@ -40,8 +40,8 @@ services:
       - |
         echo "Waiting for the test backend..."
         for attempt in $$(seq 1 60); do
-          status="$$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 2 "$$E2E_BASE_URL/auth" || true)"
-          if [ "$$status" = "401" ]; then
+          status="$$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 2 "$$E2E_BASE_URL/health" || true)"
+          if [ "$$status" = "200" ]; then
             exec go test -v -count=1 -timeout=2m ./tests
           fi
           sleep 1
