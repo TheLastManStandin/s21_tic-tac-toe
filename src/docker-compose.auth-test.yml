@@ -1,0 +1,17 @@
+# Overlay for docker-compose.test.yml. TTLs must be set in BOTH containers:
+# changing os.Environ in a Go test cannot reconfigure a separate app process.
+services:
+  app:
+    environment:
+      ACCESS_TOKEN_TTL: ${E2E_AUTH_ACCESS_TTL:-5s}
+      REFRESH_TOKEN_TTL: ${E2E_AUTH_REFRESH_TTL:-15s}
+  tests:
+    environment:
+      E2E_TEST_RUN: ^TestAuth
+      E2E_TEST_TIMEOUT: 4m
+      E2E_AUTH_ACCESS_TTL: ${E2E_AUTH_ACCESS_TTL:-5s}
+      E2E_AUTH_REFRESH_TTL: ${E2E_AUTH_REFRESH_TTL:-15s}
+      E2E_AUTH_LOGIN_PATH: ${E2E_AUTH_LOGIN_PATH:-/auth}
+      E2E_AUTH_ACCESS_PATH: ${E2E_AUTH_ACCESS_PATH:-/auth/access}
+      E2E_AUTH_REFRESH_PATH: ${E2E_AUTH_REFRESH_PATH:-/auth/refresh}
+      E2E_AUTH_ME_PATH: ${E2E_AUTH_ME_PATH:-/user/me}

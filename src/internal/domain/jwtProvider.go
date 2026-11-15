@@ -12,8 +12,8 @@ import (
 type TokenUse uint32
 
 const (
-	accessTokenTTL  = 1 * time.Minute
-	refreshTokenTTL = 15 * 24 * time.Hour
+	defaultAccessTokenTTL  = 15 * time.Minute
+	defaultRefreshTokenTTL = 15 * 24 * time.Hour
 )
 
 const (
@@ -27,7 +27,9 @@ type claims struct {
 }
 
 type JwtProvider struct {
-	Key string
+	Key        string
+	accessTTL  time.Duration
+	refreshTTL time.Duration
 }
 
 func NewJwtProvider() (*JwtProvider, error) {
@@ -35,15 +37,43 @@ func NewJwtProvider() (*JwtProvider, error) {
 	if key == "" {
 		return nil, fmt.Errorf("No jwt key provided is .env")
 	}
-	return &JwtProvider{Key: key}, nil
+	accessTTL, err := tokenTTLFromEnv("ACCESS_TOKEN_TTL", defaultAccessTokenTTL)
+	if err != nil {
+		return nil, err
+	}
+	refreshTTL, err := tokenTTLFromEnv("REFRESH_TOKEN_TTL", defaultRefreshTokenTTL)
+	if err != nil {
+		return nil, err
+	}
+	return &JwtProvider{
+		Key:        key,
+		accessTTL:  accessTTL,
+		refreshTTL: refreshTTL,
+	}, nil
+}
+
+func tokenTTLFromEnv(name string, defaultTTL time.Duration) (time.Duration, error) {
+	value := os.Getenv(name)
+	if value == "" {
+		return defaultTTL, nil
+	}
+	ttl, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %w", name, err)
+	}
+	if ttl <= 0 {
+		return 0, fmt.Errorf("%s must be positive", name)
+	}
+	return ttl, nil
 }
 
 func (jp *JwtProvider) GenerateAccessToken(userUUID string) (string, error) {
+	now := time.Now()
 	userClaims := claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userUUID,
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessTokenTTL)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(now.Add(jp.accessTTL)),
+			IssuedAt:  jwt.NewNumericDate(now),
 		},
 		TokenUse: access,
 	}
@@ -53,11 +83,12 @@ func (jp *JwtProvider) GenerateAccessToken(userUUID string) (string, error) {
 }
 
 func (jp *JwtProvider) GenerateRefreshToken(userUUID string) (string, error) {
+	now := time.Now()
 	userClaims := claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userUUID,
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(refreshTokenTTL)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(now.Add(jp.refreshTTL)),
+			IssuedAt:  jwt.NewNumericDate(now),
 		},
 		TokenUse: refresh,
 	}

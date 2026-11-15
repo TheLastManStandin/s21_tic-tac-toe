@@ -30,6 +30,8 @@ services:
       target: build
     environment:
       E2E_BASE_URL: http://app:5005
+      E2E_TEST_RUN: .
+      E2E_TEST_TIMEOUT: 2m
     depends_on:
       app:
         condition: service_started
@@ -42,11 +44,11 @@ services:
         for attempt in $$(seq 1 60); do
           status="$$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 2 "$$E2E_BASE_URL/health" || true)"
           if [ "$$status" = "200" ]; then
-            exec go test -v -count=1 -timeout=2m ./tests
+            exec go test -v -count=1 -run "$$E2E_TEST_RUN" -timeout="$$E2E_TEST_TIMEOUT" ./tests
           fi
           sleep 1
         done
-        echo "Test backend did not become ready" >&2
+        echo "Test backend did not become ready: last /health HTTP status=$$status" >&2
         exit 1
 
 volumes:

@@ -7,6 +7,7 @@ import (
 	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/services"
 	"tickTackToe/internal/web/utils/httpresponse"
+	"tickTackToe/internal/web/utils/requestcontext"
 
 	"go.uber.org/zap"
 )
@@ -82,5 +83,19 @@ func (h AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		h.logger.Error("failed to write refresh response", zap.Error(err))
+	}
+}
+
+func (h AuthHandler) GetUserInfo(w http.ResponseWriter, r *http.Request) {
+	userUUID, ok := requestcontext.UserUUID(r.Context())
+	if !ok || userUUID == "" {
+		h.logger.Error("failed to get user UUID from request")
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(userUUID); err != nil {
+		h.logger.Error("failed to write user info response", zap.Error(err))
 	}
 }
