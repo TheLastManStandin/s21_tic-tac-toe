@@ -146,7 +146,7 @@ func (jp *JwtProvider) ValidateAccessToken(token string) (string, error) {
 func (jp *JwtProvider) ValidateRefreshToken(token string) (string, error) {
 	claims, err := jp.validateToken(token, refresh)
 	if err != nil {
-		return "", err
+		return "", ErrInvalidRefreshToken
 	}
 	return claims.Subject, nil
 }
