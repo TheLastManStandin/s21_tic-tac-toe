@@ -7,6 +7,7 @@ import (
 
 type GameRepository interface {
 	ListAvailableGames(ctx context.Context, playerUUID string) ([]domain.GameInstance, error)
+	ListFinishedGames(ctx context.Context, playerUUID string) ([]domain.GameInstance, error)
 
 	SaveGame(
 		ctx context.Context,

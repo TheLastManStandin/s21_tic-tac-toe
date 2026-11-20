@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"tickTackToe/internal/domain"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -131,10 +132,11 @@ func (db *PostgresDatabase) InitGame(
 				gametable,
 				gamestate,
 				minimax,
-				firstplayer)
-			VALUES($1,$2,$3,$4,$5) 
+				firstplayer,
+				created_at)
+			VALUES($1,$2,$3,$4,$5,$6)
 			ON CONFLICT (uuid) DO NOTHING`,
-			gameUUID, table, gameState, minimax, playerUUID,
+			gameUUID, table, gameState, minimax, playerUUID, time.Now(),
 		)
 		return err
 	}
@@ -249,17 +251,32 @@ func (db *PostgresDatabase) InsertUser(ctx context.Context, user domain.UserInst
 }
 
 func (db *PostgresDatabase) ListAvailableGames(ctx context.Context, playerUUID string) ([]domain.GameInstance, error) {
+	return db.listGames(ctx, `
+		SELECT uuid, gametable, gamestate, minimax, firstplayer,
+		       COALESCE(secondplayer::text, '')
+		FROM games
+		WHERE minimax = FALSE AND gamestate = $1
+		  AND secondplayer IS NULL AND firstplayer IS NOT NULL
+		  AND firstplayer <> $2
+		ORDER BY uuid`, domain.WaitingForPlayers, playerUUID)
+}
+
+func (db *PostgresDatabase) ListFinishedGames(ctx context.Context, playerUUID string) ([]domain.GameInstance, error) {
+	return db.listGames(ctx, `
+		SELECT uuid, gametable, gamestate, minimax, firstplayer,
+		       COALESCE(secondplayer::text, '')
+		FROM games
+		WHERE (firstplayer = $1 OR secondplayer = $1)
+		  AND gamestate IN ($2, $3, $4)
+		ORDER BY created_at DESC, uuid`,
+		playerUUID, domain.FirstPlayerWon, domain.SecondPlayerWon, domain.Draw)
+}
+
+func (db *PostgresDatabase) listGames(ctx context.Context, query string, args ...any) ([]domain.GameInstance, error) {
 	var games []domain.GameInstance
 	operation := func() error {
 		games = make([]domain.GameInstance, 0)
-		rows, err := db.pool.Query(ctx, `
-			SELECT uuid, gametable, gamestate, minimax, firstplayer,
-			       COALESCE(secondplayer::text, '')
-			FROM games
-			WHERE minimax = FALSE AND gamestate = $1
-			  AND secondplayer IS NULL AND firstplayer IS NOT NULL
-			  AND firstplayer <> $2
-			ORDER BY uuid`, domain.WaitingForPlayers, playerUUID)
+		rows, err := db.pool.Query(ctx, query, args...)
 		if err != nil {
 			return err
 		}

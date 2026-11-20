@@ -232,13 +232,24 @@ func (gs *GameService) JoinGame(ctx context.Context, gameUUID string, playerUUID
 	return domain.ErrCannotConnectToGame
 }
 
-func (gs *GameService) GetGames(ctx context.Context, playerUUID string) ([]domain.GameInstance, error) {
+func (gs *GameService) GetAvalableGames(ctx context.Context, playerUUID string) ([]domain.GameInstance, error) {
 	if playerUUID == "" {
 		return nil, domain.ErrGameAccessDenied
 	}
 	games, err := gs.Repo.ListAvailableGames(ctx, playerUUID)
 	if err != nil {
 		return nil, fmt.Errorf("list available games: %w", err)
+	}
+	return games, nil
+}
+
+func (gs *GameService) GetFinishedGames(ctx context.Context, playerUUID string) ([]domain.GameInstance, error) {
+	if playerUUID == "" {
+		return nil, domain.ErrGameAccessDenied
+	}
+	games, err := gs.Repo.ListFinishedGames(ctx, playerUUID)
+	if err != nil {
+		return nil, fmt.Errorf("list finished games: %w", err)
 	}
 	return games, nil
 }

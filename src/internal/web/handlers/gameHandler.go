@@ -170,12 +170,31 @@ func (h *GameHandler) GetGames(w http.ResponseWriter, r *http.Request) {
 		httpresponse.WriteUnauthorized(w)
 		return
 	}
-	games, err := h.service.GetGames(r.Context(), playerUUID)
+	games, err := h.service.GetAvalableGames(r.Context(), playerUUID)
 	if err != nil {
 		h.logger.Error("failed to list games", zap.Error(err))
 		httpresponse.WriteError(w, err)
 		return
 	}
+	h.writeGamesResponse(w, games)
+}
+
+func (h *GameHandler) GetGamesHistory(w http.ResponseWriter, r *http.Request) {
+	playerUUID, ok := requestcontext.UserUUID(r.Context())
+	if !ok || playerUUID == "" {
+		httpresponse.WriteUnauthorized(w)
+		return
+	}
+	games, err := h.service.GetFinishedGames(r.Context(), playerUUID)
+	if err != nil {
+		h.logger.Error("failed to list finished games", zap.Error(err))
+		httpresponse.WriteError(w, err)
+		return
+	}
+	h.writeGamesResponse(w, games)
+}
+
+func (h *GameHandler) writeGamesResponse(w http.ResponseWriter, games []domain.GameInstance) {
 	response := make([]GameDetailsResponse, 0, len(games))
 	for _, game := range games {
 		response = append(response, gameDetailsResponse(game))

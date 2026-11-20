@@ -21,6 +21,7 @@ func NewServeMux(
 	protectedMux.HandleFunc("POST /game/{UUID}/join", gameHandler.JoinGame)
 	protectedMux.HandleFunc("GET /game", gameHandler.GetGames)
 	protectedMux.HandleFunc("GET /game/{UUID}", gameHandler.GetGameStatus)
+	protectedMux.HandleFunc("GET /game/history", gameHandler.GetGamesHistory)
 	protectedMux.HandleFunc("GET /user/{UUID}", userHandler.GetUserStatus)
 	protectedMux.HandleFunc("GET /user", authHandler.GetUserInfo)
 

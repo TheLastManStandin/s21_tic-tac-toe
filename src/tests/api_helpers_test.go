@@ -214,6 +214,16 @@ func (api *apiClient) availableGames(t *testing.T) []gameResponse {
 	return games
 }
 
+func (api *apiClient) gameHistory(t *testing.T) []gameResponse {
+	t.Helper()
+	var games []gameResponse
+	decodeJSON(t, api.request(t, http.MethodGet, "/game/history", nil), &games)
+	if games == nil {
+		t.Fatal("история игр должна быть JSON-массивом, а не null")
+	}
+	return games
+}
+
 func containsGame(games []gameResponse, id string) bool {
 	for _, game := range games {
 		if game.UUID == id {

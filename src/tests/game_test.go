@@ -2,6 +2,7 @@ package tests_test
 
 import (
 	"net/http"
+	"slices"
 	"testing"
 )
 
@@ -153,5 +154,71 @@ func TestGameInvalidRequests(t *testing.T) {
 	})
 	t.Run("invalid_creation_body", func(t *testing.T) {
 		client.request(t, http.MethodPost, "/game", `{"WithRobot":"yes"}`, http.StatusBadRequest)
+	})
+}
+
+func TestGameHistory(t *testing.T) {
+	t.Run("requires_access_token", func(t *testing.T) {
+		client := newAPIClient(t)
+		client.request(t, http.MethodGet, "/game/history", nil, http.StatusUnauthorized)
+	})
+
+	t.Run("empty_history", func(t *testing.T) {
+		client := newAuthenticatedClient(t)
+		if games := client.gameHistory(t); len(games) != 0 {
+			t.Fatalf("у нового игрока должна быть пустая история, получено %+v", games)
+		}
+	})
+
+	t.Run("finished_games_for_both_players_newest_first", func(t *testing.T) {
+		first := newAuthenticatedClient(t)
+		second := newAuthenticatedClient(t)
+		third := newAuthenticatedClient(t)
+		fourth := newAuthenticatedClient(t)
+
+		finishGame := func(owner, guest *apiClient, moves []turnRequest, state string) gameResponse {
+			t.Helper()
+			id := owner.createGame(t, false)
+			guest.joinGame(t, id)
+			players := [2]*apiClient{owner, guest}
+			var table [3][3]int
+			for i, move := range moves {
+				players[i%2].makeTurn(t, id, move.X, move.Y)
+				table[move.X][move.Y] = i%2 + 1
+			}
+			return gameResponse{
+				UUID: id, Table: table, State: state,
+				FirstPlayerUUID: owner.userID, SecondPlayerUUID: guest.userID,
+			}
+		}
+
+		firstWinMoves := []turnRequest{{0, 0}, {1, 0}, {0, 1}, {1, 1}, {0, 2}}
+		secondWinMoves := []turnRequest{{0, 0}, {1, 0}, {0, 1}, {1, 1}, {2, 2}, {1, 2}}
+		drawMoves := []turnRequest{{0, 0}, {0, 1}, {0, 2}, {1, 1}, {1, 0}, {1, 2}, {2, 1}, {2, 0}, {2, 2}}
+		firstWon := finishGame(first, second, firstWinMoves, "first_player_won")
+		foreign := finishGame(third, fourth, firstWinMoves, "first_player_won")
+		secondWon := finishGame(first, second, secondWinMoves, "second_player_won")
+		drawn := finishGame(first, second, drawMoves, "draw")
+
+		first.createGame(t, false) // Игра в ожидании соперника.
+		activeID := first.createGame(t, false)
+		second.joinGame(t, activeID)
+		first.makeTurn(t, activeID, 0, 0)
+
+		for _, tc := range []struct {
+			name   string
+			client *apiClient
+			want   []gameResponse
+		}{
+			{"first_player", first, []gameResponse{drawn, secondWon, firstWon}},
+			{"second_player", second, []gameResponse{drawn, secondWon, firstWon}},
+			{"unrelated_player", third, []gameResponse{foreign}},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				if got := tc.client.gameHistory(t); !slices.Equal(got, tc.want) {
+					t.Errorf("история = %+v, ожидалось %+v", got, tc.want)
+				}
+			})
+		}
 	})
 }
