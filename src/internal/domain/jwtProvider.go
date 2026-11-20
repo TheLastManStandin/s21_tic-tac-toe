@@ -121,11 +121,11 @@ func (jp *JwtProvider) validateToken(
 		return nil, fmt.Errorf("validate JWT: %w", err)
 	}
 	if !token.Valid {
-		return nil, fmt.Errorf("invalid JWT")
+		return nil, ErrInvalidRefreshToken
 	}
 
 	if userClaims.TokenUse != expectedUse {
-		return nil, fmt.Errorf("unexpected token use")
+		return nil, ErrInvalidRefreshToken
 	}
 
 	if err := uuid.Validate(userClaims.Subject); err != nil {

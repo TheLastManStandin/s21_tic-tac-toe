@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"tickTackToe/internal/domain"
 	"tickTackToe/internal/domain/services"
@@ -39,7 +40,9 @@ func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	userUUID, err := h.userService.RegisterUser(r.Context(), username, password)
 
 	if err != nil {
-		h.logger.Error("Failed to register user", zap.Error(err))
+		if !errors.Is(err, domain.ErrUserAlreadyExists) {
+			h.logger.Error("Failed to register user", zap.Error(err))
+		}
 		httpresponse.WriteError(w, err)
 		return
 	}
@@ -50,11 +53,15 @@ func (h AuthHandler) Auth(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	response, err := h.authService.Login(r)
-	if errors.Is(err, domain.ErrInvalidLoginPassword) {
+	if errors.Is(err, domain.ErrInvalidLoginPassword) || errors.Is(err, domain.ErrEmptyLoginPassword) {
 		httpresponse.WriteUnauthorized(w)
 		return
 	}
 	if err != nil {
+		if errors.Is(err, io.ErrUnexpectedEOF) {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
 		h.logger.Error("authentication failed", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return

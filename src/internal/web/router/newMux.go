@@ -22,17 +22,16 @@ func NewServeMux(
 	protectedMux.HandleFunc("GET /game", gameHandler.GetGames)
 	protectedMux.HandleFunc("GET /game/{UUID}", gameHandler.GetGameStatus)
 	protectedMux.HandleFunc("GET /user/{UUID}", userHandler.GetUserStatus)
+	protectedMux.HandleFunc("GET /user", authHandler.GetUserInfo)
 
 	mux.HandleFunc("POST /register", authHandler.Register)
 	mux.HandleFunc("POST /auth", authHandler.Auth)
 	mux.HandleFunc("POST /refresh", authHandler.Refresh)
-	mux.HandleFunc("GET /user", authHandler.GetUserInfo)
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	// mux.Handle("/", auth.Wrap(protectedMux))
-	mux.Handle("/", addMiddleware(
+	mux.Handle("/", withMiddlewares(
 		protectedMux,
 		middleware.AuthMiddleware(auth),
 	))
@@ -40,7 +39,7 @@ func NewServeMux(
 	return mux
 }
 
-func addMiddleware(handler http.Handler, middlewares ...func(http.Handler) http.Handler) http.Handler {
+func withMiddlewares(handler http.Handler, middlewares ...func(http.Handler) http.Handler) http.Handler {
 	for _, mv := range middlewares {
 		handler = mv(handler)
 	}

@@ -27,6 +27,7 @@ func InitHTTPServer(
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go func() {
+				log.Info("Server port: " + serverAddress)
 				if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 					return
 				}

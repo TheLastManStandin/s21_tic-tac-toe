@@ -26,7 +26,7 @@ tasks:
       E2E_COMPOSE: docker compose --project-name {{.E2E_PROJECT}} --file docker-compose.test.yml
     cmds:
       - mkdir -p logs
-      - defer: '{{.E2E_COMPOSE}} down --volumes --remove-orphans'
+      - defer: '{{.E2E_COMPOSE}} down --volumes --remove-orphans --rmi local'
       # Deferred commands run in reverse order: collect logs before removing containers.
       - defer: '{{.E2E_COMPOSE}} logs --no-color --timestamps app > "logs/{{.E2E_PROJECT}}-app.log" 2>&1'
       - '{{.E2E_COMPOSE}} up --build --abort-on-container-exit --exit-code-from tests --attach tests'
@@ -39,7 +39,7 @@ tasks:
       E2E_COMPOSE: docker compose --project-name {{.E2E_PROJECT}} --file docker-compose.test.yml --file docker-compose.auth-test.yml
     cmds:
       - mkdir -p logs
-      - defer: '{{.E2E_COMPOSE}} down --volumes --remove-orphans'
+      - defer: '{{.E2E_COMPOSE}} down --volumes --remove-orphans --rmi local'
       - defer: '{{.E2E_COMPOSE}} logs --no-color --timestamps app > "logs/{{.E2E_PROJECT}}-app.log" 2>&1'
       - defer: '{{.E2E_COMPOSE}} logs --no-color --timestamps tests > "logs/{{.E2E_PROJECT}}-tests.log" 2>&1'
       - '{{.E2E_COMPOSE}} up --build --abort-on-container-exit --exit-code-from tests --attach tests'

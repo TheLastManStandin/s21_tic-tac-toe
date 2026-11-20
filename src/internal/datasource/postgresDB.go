@@ -118,6 +118,10 @@ func (db *PostgresDatabase) InitGame(
 			table[i][j] = 0
 		}
 	}
+	gameState := domain.WaitingForPlayers
+	if minimax {
+		gameState = domain.FirstPlayerTurn
+	}
 
 	insertOperation := func() error {
 		_, err := db.pool.Exec(
@@ -130,7 +134,7 @@ func (db *PostgresDatabase) InitGame(
 				firstplayer)
 			VALUES($1,$2,$3,$4,$5) 
 			ON CONFLICT (uuid) DO NOTHING`,
-			gameUUID, table, 0, minimax, playerUUID,
+			gameUUID, table, gameState, minimax, playerUUID,
 		)
 		return err
 	}
